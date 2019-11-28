@@ -9,6 +9,9 @@ import torch
 from torch.autograd import Variable
 from torch.distributions import Categorical
 
+from torchvision.utils import save_image
+
+
 from VAE import VAE
 
 ip         = "127.0.0.1" # Ip address that the TCP/IP interface listens to
@@ -71,6 +74,15 @@ def main(episodes):
         loss.backward()
         optimizer.step()
         print(loss)
+
+        # Sample image
+        sample = recon_images[0]
+
+        #TODO: Does not work yet, need to change the images.
+        save_image(sample.data.cpu(), './vae_images/sample_image.png')
+        save_image(state.data.cpu(), './vae_images/orig_image.png')
+
+        display(Image('sample_image.png', width=700, unconfined=True))
             # to_print = "Episode count[{}] Loss: {:.3f} {:.3f} {:.3f}".format(ep_cnt, loss.data[0]/bs, bce.data[0]/bs, kld.data[0]/bs)
             # print(to_print)
 
