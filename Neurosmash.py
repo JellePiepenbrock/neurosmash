@@ -38,8 +38,9 @@ class Policy(nn.Module):
             nn.MaxPool2d(kernel_size=4),
             nn.ReLU(),
             Flatten(),
-            nn.Linear(16, 3),
-
+            nn.Linear(16, 5),
+            nn.ReLU(),
+            nn.Linear(5, 3)
         )
 
         self.gamma = gamma
@@ -52,10 +53,11 @@ class Policy(nn.Module):
 
 
     def forward(self, x):
-        x = torch.FloatTensor(x).reshape(1, 3, 768, 768)
+        x = torch.FloatTensor(x).reshape(1,768,768, 3).permute(0, 3, 1, 2)
         x = self.policymodel(x)  # Made the softmax temp lower
         print(x)
         return torch.softmax(x, dim=1)
+
 
 
 class Environment:
