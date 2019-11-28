@@ -12,7 +12,7 @@ from torch.distributions import Categorical
 ip         = "127.0.0.1" # Ip address that the TCP/IP interface listens to
 port       = 13000       # Port number that the TCP/IP interface listens to
 size       = 768         # Please check the Updates section above for more details
-timescale  = 30     # Please check the Updates section above for more details
+timescale  = 10     # Please check the Updates section above for more details
 
 # agent = Neurosmash.Agent() # This is an example agent.
                            # It has a step function, which gets reward/state as arguments and returns an action.
@@ -24,7 +24,7 @@ timescale  = 30     # Please check the Updates section above for more details
 env = Neurosmash.Environment(timescale=timescale) # This is the main environment.
 end, reward, state = env.reset()
 policy = Neurosmash.Policy()
-# policy.load_state_dict(torch.load("weights_100episodes_reward_quick_victory"))
+policy.load_state_dict(torch.load("weights_100episodes_reward_longterm"))
 optimizer = torch.optim.Adam(policy.parameters())
 
 def select_action(state,policy):
@@ -36,6 +36,7 @@ def select_action(state,policy):
     c = Categorical(state)
     action = c.sample()
     # print(action)
+
     # Add log probability of our chosen action to our history
     if policy.policy_history.dim() != 0:
         policy.policy_history = torch.cat([policy.policy_history, c.log_prob(action)])
@@ -48,13 +49,12 @@ def update_policy():
     R = 0
     rewards = []
 
-    # Discount future rewards back to the present using gamma
+    # Reward discounting (i.e. smear reward back through history)
     for r in policy.reward_episode[::-1]:
         R = r + policy.gamma * R
         rewards.insert(0, R)
 
-    # Scale rewards
-    rewards = torch.FloatTensor(rewards)
+    # Scale rewards, just some autoscaling
     rewards = torch.FloatTensor(rewards)
     rewards = (rewards - rewards.mean()) / (rewards.std() + np.finfo(np.float32).eps)
     # print(rewards)
@@ -74,31 +74,30 @@ def update_policy():
 
 
 def main(episodes):
-
+    # Episode lasts until end == 1
     for episode in range(episodes):
         print("Episode: ", episode)
         end, reward, state = env.reset()  # Reset environment and record the starting state
         done = False
-
-        for time in range(15):
+        # Go through every episode but only 15 timesteps
+        for time in range(100):
             state = np.array(state)
             action = select_action(state, policy).detach()
-            # Step through environment using chosen action
+            # Env step
             done, reward, state = env.step(action)
             # Save reward
             if reward > 0:
                 print(reward)
 
-            # reward += time
+            reward += time # reward for existing
             policy.reward_episode.append(reward)
 
             if done:
                 break
         print(reward)
 
-
-
+        # Actually backpropagate the policy gradient
         update_policy()
 
-main(50)
-torch.save(policy.state_dict(), "weights_100episodes_reward_quick_victory2")
+main(5)
+torch.save(policy.state_dict(), "weights_100episodes_reward_longterm")
