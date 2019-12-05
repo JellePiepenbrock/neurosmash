@@ -6,4 +6,8 @@ Project for course "Neural Information Processing Systems" 2019.
 
 ## Approaches
 
+### Policy Gradient
+
+### World Models
+
 ## Further Reading
