@@ -54,7 +54,8 @@ def main(episodes):
     end, reward, state = env.reset()
     ep_cnt = 0 
     states = []
-    for episode in range(episodes):
+    file_cnt = 0 
+    for episode in range(episodes+1):
         end, reward, state = env.reset()  # Reset environment and record the starting state
         done = False
         ep_cnt += 1
@@ -67,12 +68,21 @@ def main(episodes):
             done, reward, state = env.step(action)
             state = torch.FloatTensor(state).reshape(size, size, 3)
             state = state.permute(2, 0, 1)
-            states.append(state)
 
             if done:
-                break
+                states.append(state)
+                print('Death')
 
-    states = torch.stack(states)
-    torch.save(states, 'training_data.pt')
+                if len(states) == 1000:
+                    break
+                
+
+        print('Storing files')
+        states = torch.stack(states)
+        torch.save(states, '../data/death_state_{}.pt'.format(file_cnt))
+        file_cnt += 1
+        states = []
+        break
+
 
 main(10000)
