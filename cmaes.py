@@ -47,11 +47,12 @@ def select_action(state,policy):
 def main():
 	
 	es = cma.CMAEvolutionStrategy(1215 * [1], 1)
+	#es.popsize() = 5
 	while not es.stop():
 		#store solutions for each sample in population
 		solutions = []
 		#get the population (50 samples)
-		xs = es.ask()
+		xs = es.ask(number=5)
 		#for each sample in the population
 		for person in xs:
 			#reset the environment
@@ -75,7 +76,7 @@ def main():
 			policy.load_state_dict(state_dict)
 
 			#run the game
-			for time in range(40):
+			for time in range(100):
 				#select and execute an action according to the policy
 				action = select_action(np.array(state), policy).detach()
 				done, reward, state = env.step(action)
