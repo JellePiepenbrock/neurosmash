@@ -6,11 +6,17 @@ Project for course "Neural Information Processing Systems" 2019.
 
 ## Methods
 
-### Policy Gradient
-
-### CMA-ES
-
 ### World Models
+
+#### VAE
+
+#### Mixture Density RNN
+
+### RL Optimization
+
+#### Policy Gradient
+
+#### CMA-ES
 
 ### In-World Model Policy Training
 
