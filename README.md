@@ -4,7 +4,7 @@ Project for course "Neural Information Processing Systems" 2019.
 
 ## Environment
 
-## Approaches
+## Methods
 
 ### Policy Gradient
 
