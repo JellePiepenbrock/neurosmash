@@ -8,6 +8,10 @@ Project for course "Neural Information Processing Systems" 2019.
 
 ### Policy Gradient
 
+### CMA-ES
+
 ### World Models
+
+### In-World Model Policy Training
 
 ## Further Reading
