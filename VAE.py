@@ -8,77 +8,52 @@ class Flatten(nn.Module):
         return input.view(input.size(0), -1)
 
 class UnFlatten(nn.Module):
-    def forward(self, input, size=1024):
+    def forward(self, input, size=32):
         return input.view(input.size(0), size, 1, 1)
 
 class VAE(nn.Module):
-    # def __init__(self, image_channels=3, h_dim=1024, z_dim=64):
-    #     super(VAE, self).__init__()
-    #     self.encoder = nn.Sequential(
-    #         nn.Conv2d(image_channels, 4, kernel_size=4, stride=2),
-    #         nn.ReLU(),
-    #         nn.Conv2d(4, 4, kernel_size=4, stride=2),
-    #         nn.ReLU(),
-    #         nn.Conv2d(4, 4, kernel_size=4, stride=2),
-    #         nn.ReLU(),
-    #         nn.Conv2d(4, 4, kernel_size=4, stride=2),
-    #         nn.ReLU(),
-    #         Flatten()
-    #     )
-    #     self.fc1 = nn.Linear(h_dim, z_dim)
-    #     self.fc2 = nn.Linear(h_dim, z_dim)
-    #     self.fc3 = nn.Linear(z_dim, h_dim)
-        
-    #     self.decoder = nn.Sequential(
-    #         UnFlatten(),
-    #         nn.ConvTranspose2d(h_dim, 4, kernel_size=8, stride=2),
-    #         nn.ReLU(),
-    #         nn.ConvTranspose2d(4, 4, kernel_size=7, stride=2),
-    #         nn.ReLU(),
-    #         nn.ConvTranspose2d(4, 4, kernel_size=5, stride=2),
-    #         nn.ReLU(),
-    #         nn.ConvTranspose2d(4, 4, kernel_size=6, stride=2),
-    #         nn.ReLU(),
-    #         nn.ConvTranspose2d(4, 4, kernel_size=5, stride=2),
-    #         nn.ReLU(),
-    #         nn.ConvTranspose2d(4, 4, kernel_size=3, stride=2),
-    #         nn.ReLU(),
-    #         nn.ConvTranspose2d(4, image_channels, kernel_size=4, stride=2),
-    #         nn.Sigmoid(),
-    #     )
-    def __init__(self, image_channels=3, h_dim=1024, z_dim=32):
+    def __init__(self, image_channels=3, h_dim=512, z_dim=32):
         super(VAE, self).__init__()
         self.encoder = nn.Sequential(
             nn.Conv2d(image_channels, 32, kernel_size=4, stride=2),
             nn.ReLU(),
             nn.Conv2d(32, 64, kernel_size=4, stride=2),
             nn.ReLU(),
-            nn.Conv2d(64, 128, kernel_size=4, stride=2),
+            nn.Conv2d(64, 64, kernel_size=4, stride=2),
             nn.ReLU(),
-            nn.Conv2d(128, 256, kernel_size=4, stride=2),
+            nn.Conv2d(64, 128, kernel_size=4, stride=2),
             nn.ReLU(),
             Flatten()
         )
+
+        model_parameters = filter(lambda p: p.requires_grad, self.encoder.parameters())
+        params = sum([np.prod(p.size()) for p in model_parameters])
+        print('Trainable parameters encoder: ', params)
         
         self.fc1 = nn.Linear(h_dim, z_dim)
         self.fc2 = nn.Linear(h_dim, z_dim)
-        self.fc3 = nn.Linear(z_dim, h_dim)
+        self.fc3 = nn.Linear(z_dim, 32)
         
         self.decoder = nn.Sequential(
             UnFlatten(),
-            nn.ConvTranspose2d(h_dim, 128, kernel_size=5, stride=2),
+            nn.ConvTranspose2d(32, 32, kernel_size=5, stride=2),
             nn.ReLU(),
-            nn.ConvTranspose2d(128, 64, kernel_size=5, stride=2),
+            nn.ConvTranspose2d(32, 16, kernel_size=5, stride=2),
             nn.ReLU(),
-            nn.ConvTranspose2d(64, 32, kernel_size=6, stride=2),
+            nn.ConvTranspose2d(16, 8, kernel_size=6, stride=2),
             nn.ReLU(),
-            nn.ConvTranspose2d(32, image_channels, kernel_size=6, stride=2),
+            nn.ConvTranspose2d(8, image_channels, kernel_size=6, stride=2),
             nn.Sigmoid(),
         )
+
+        model_parameters = filter(lambda p: p.requires_grad, self.decoder.parameters())
+        params = sum([np.prod(p.size()) for p in model_parameters])
+        print('Trainable parameters decoder: ', params)
+        
     def reparameterize(self, mu, logvar):
         std = logvar.mul(0.5).exp_()
         # return torch.normal(mu, std)
-        esp = torch.randn(*mu.size())
+        esp = torch.randn(*mu.size()).to(device)
         z = mu + std * esp
         return z
     
@@ -101,3 +76,7 @@ class VAE(nn.Module):
         z, mu, logvar = self.encode(x)
         z = self.decode(z)
         return z, mu, logvar
+
+
+vae = VAE(image_channels=3).to(device)
+optimizer = torch.optim.Adam(vae.parameters(), lr=1e-3)
