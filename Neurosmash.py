@@ -92,3 +92,6 @@ class Environment:
 
     def _send(self, action, command):
         self.client.send(bytes([action, command]))
+
+
+#data   = self.client.recv(1 + 1 + 768 * 768 * 3, socket.MSG_WAITALL)
