@@ -82,5 +82,7 @@ class VAE(nn.Module):
 
 
 if __name__ == "__main__":
-    vae = VAE(image_channels=3).to(device)
+    type_device = 'cpu'
+    device = torch.device(type_device)
+    vae = VAE(device, image_channels=3).to(device)
     optimizer = torch.optim.Adam(vae.parameters(), lr=1e-3)
