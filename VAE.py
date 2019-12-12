@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
+import numpy as np 
 
 class Flatten(nn.Module):
     def forward(self, input):
@@ -12,8 +13,10 @@ class UnFlatten(nn.Module):
         return input.view(input.size(0), size, 1, 1)
 
 class VAE(nn.Module):
-    def __init__(self, image_channels=3, h_dim=512, z_dim=32):
+    def __init__(self, device, image_channels=3, h_dim=512, z_dim=32):
         super(VAE, self).__init__()
+
+        self.device = device
         self.encoder = nn.Sequential(
             nn.Conv2d(image_channels, 32, kernel_size=4, stride=2),
             nn.ReLU(),
@@ -53,7 +56,7 @@ class VAE(nn.Module):
     def reparameterize(self, mu, logvar):
         std = logvar.mul(0.5).exp_()
         # return torch.normal(mu, std)
-        esp = torch.randn(*mu.size()).to(device)
+        esp = torch.randn(*mu.size()).to(self.device)
         z = mu + std * esp
         return z
     
@@ -78,5 +81,6 @@ class VAE(nn.Module):
         return z, mu, logvar
 
 
-vae = VAE(image_channels=3).to(device)
-optimizer = torch.optim.Adam(vae.parameters(), lr=1e-3)
+if __name__ == "__main__":
+    vae = VAE(image_channels=3).to(device)
+    optimizer = torch.optim.Adam(vae.parameters(), lr=1e-3)

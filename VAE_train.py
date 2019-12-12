@@ -16,14 +16,17 @@ import numpy as np
 from matplotlib import pyplot as plt
 from VAE import VAE
 
-
 from torchvision.utils import save_image
 from torchvision.transforms.functional import to_pil_image, to_grayscale, to_tensor
-device = torch.device('cuda')
+
+
+base_url = '../'
+type_device = 'cpu'
+device = torch.device(type_device)
 
 batch_size = 32
 
-vae = VAE(image_channels=3).to(device)
+vae = VAE(device, image_channels=3).to(device)
 optimizer = torch.optim.Adam(vae.parameters(), lr=1e-3)
 print('Loaded model.')
 
@@ -77,7 +80,7 @@ def main(episodes):
     
     '''
     dataset = None
-    for i in range(5):
+    for i in range(1):
         if dataset is None:
             dataset = torch.load('{}/data/training_data_{}.pt'.format(base_url, i)) / 255
         else:
