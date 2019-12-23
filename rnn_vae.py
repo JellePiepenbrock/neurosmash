@@ -17,12 +17,12 @@ from torchvision.utils import save_image
 # from IPython.core.display import Image, display
 import pickle
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-device = 'cpu'
+# device = 'cpu'
 ip         = "127.0.0.1" # Ip address that the TCP/IP interface listens to
 port       = 13000       # Port number that the TCP/IP interface listens to
 size       = 64         # Please check the Updates section above for more details
 timescale  = 10     # Please check the Updates section above for more details
-env = Neurosmash.Environment(timescale=timescale)
+# env = Neurosmash.Environment(timescale=timescale)
 
 
 # Load VAE weights

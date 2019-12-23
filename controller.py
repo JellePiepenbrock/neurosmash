@@ -1,18 +1,30 @@
 import torch.nn as nn
 import torch
 from torch.distributions import Categorical
+from torch.autograd import Variable
+import numpy as np
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 class Controller(nn.Module):
 
-    def __init__(self):
+    def __init__(self, gamma):
         super(Controller, self).__init__()
 
         # 32 latent vars from VAE, 100 hidden state vars from LSTM
         self.predictor = nn.Sequential(
-            nn.Linear(332, 10),
+            nn.Linear(62, 10),
             nn.ReLU(),
             nn.Linear(10, 3)
         )
+
+        self.gamma = gamma
+
+        self.policy_history = Variable(torch.Tensor()).cuda()
+        self.reward_episode = []
+
+        self.reward_history = []
+        self.loss_history = []
 
     def forward(self, x):
         x = self.predictor(x)
@@ -31,12 +43,12 @@ def select_action(state, policy):
 
     # Add log probability of our chosen action to our history
     if policy.policy_history.dim() != 0:
-        policy.policy_history = torch.cat([policy.policy_history, c.log_prob(action)])
+        policy.policy_history = torch.cat([policy.policy_history.to(device), c.log_prob(action).to(device)])
     else:
-        policy.policy_history = (c.log_prob(action))
+        policy.policy_history = (c.log_prob(action).to(device))
     return action
 
-def update_policy(policy):
+def update_policy(policy, optimizer):
     R = 0
     rewards = []
 
@@ -46,11 +58,11 @@ def update_policy(policy):
         rewards.insert(0, R)
 
     # Scale rewards, just some autoscaling
-    rewards = torch.FloatTensor(rewards)
-    rewards = (rewards - rewards.mean()) / (rewards.std() + np.finfo(np.float32).eps)
+    rewards = torch.FloatTensor(rewards).to(device)
+    rewards = (rewards - rewards.mean()) / (rewards.std() + np.finfo(np.float32).eps).to(device)
     # print(rewards)
     # Calculate loss
-    loss = (torch.sum(torch.mul(policy.policy_history, Variable(rewards)).mul(-1), -1))
+    loss = (torch.sum(torch.mul(policy.policy_history.to(device), Variable(rewards)).mul(-1).to(device), -1)).to(device)
 
     # Update network weights
     optimizer.zero_grad()
