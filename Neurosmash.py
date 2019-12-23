@@ -79,7 +79,7 @@ class Environment:
         return self._receive()
 
     def state2image(self, state):
-        return Image.fromarray(np.array(state, "uint8").reshape(self.size, self.size, 3))
+        return d
 
     def _receive(self):
         # Kudos to Jan for the socket.MSG_WAITALL fix!
