@@ -158,77 +158,79 @@ def mdn_loss_fn(y, pi, mu, sigma):
 def criterion(y, pi, mu, sigma):
     y = y.unsqueeze(2)
     return mdn_loss_fn(y, pi, mu, sigma)
-
-optimizer = torch.optim.Adam(model.parameters())
-
-
-for epoch in range(epochs):
-    z = z[torch.randperm(100)]
-    b = 0
-    # Set initial hidden and cell states
-    hidden = model.init_hidden(bsz)
-    # print(hidden.shape)
-
-    # batch = z[b:b+bsz, :, :]
-    batch = z
-    for i in range(0, batch.size(1) - seqlen, seqlen):
-        # Get mini-batch inputs and targets
-        inputs = batch[:, i:i + seqlen, :]
-
-        targets = batch[:, (i + 1):(i + 1) + seqlen, :-1]
-        # print(targets.shape)
-        # Forward pass
-        hidden = detach(hidden)
-        # print(inputs.shape)
-        (pi, mu, sigma), hidden = model(inputs, hidden)
-        # print(targets)
-        loss = criterion(targets, pi, mu, sigma)
-
-        # Backward and optimize
-        model.zero_grad()
-        loss.backward(retain_graph=True)
-        # clip_grad_norm_(model.parameters(), 0.5)
-        optimizer.step()
-
-    if epoch % 100 == 0:
-        print('Epoch [{}/{}], Loss: {:.4f}'
-              .format(epoch, epochs, loss.item()))
-    b += bsz
-
-# print(z.shape)
-x = z[0, 10, :].reshape(1, 1, z_size+1)
-# print(x.shape)
-hidden = model.init_hidden(1)
-(pi, mu, sigma), _ = model(x, hidden)
-print(pi)
-original_x = vae.decode(x[:, :, :z_size].reshape(1, 1, 32)).reshape(3, 64, 64)
-original_x = (original_x * 255)
-# print(original_x.shape)
-matplotlib.pyplot.imshow(np.transpose(np.array(original_x.detach().numpy(), "uint8"), (1, 2, 0)))
-plt.title("Original")
-plt.show()
-
-x = z[0, 11, :].reshape(1, 1, z_size+1)
-# print(x.shape)
-hidden = model.init_hidden(1)
+#
+# optimizer = torch.optim.Adam(model.parameters())
+#
+#
+# for epoch in range(epochs):
+#     z = z[torch.randperm(100)]
+#     b = 0
+#     # Set initial hidden and cell states
+#     hidden = model.init_hidden(bsz)
+#     # print(hidden.shape)
+#
+#     # batch = z[b:b+bsz, :, :]
+#     batch = z
+#     for i in range(0, batch.size(1) - seqlen, seqlen):
+#         # Get mini-batch inputs and targets
+#         inputs = batch[:, i:i + seqlen, :]
+#
+#         targets = batch[:, (i + 1):(i + 1) + seqlen, :-1]
+#         # print(targets.shape)
+#         # Forward pass
+#         hidden = detach(hidden)
+#         # print(inputs.shape)
+#         (pi, mu, sigma), hidden = model(inputs, hidden)
+#         # print(targets)
+#         loss = criterion(targets, pi, mu, sigma)
+#
+#         # Backward and optimize
+#         model.zero_grad()
+#         loss.backward(retain_graph=True)
+#         # clip_grad_norm_(model.parameters(), 0.5)
+#         optimizer.step()
+#
+#     if epoch % 100 == 0:
+#         print('Epoch [{}/{}], Loss: {:.4f}'
+#               .format(epoch, epochs, loss.item()))
+#     b += bsz
+#
+# torch.save(model.state_dict(), "rnn.torch")
+#
+# # print(z.shape)
+# x = z[0, 10, :].reshape(1, 1, z_size+1)
+# # print(x.shape)
+# hidden = model.init_hidden(1)
 # (pi, mu, sigma), _ = model(x, hidden)
-print(pi)
-original_x = vae.decode(x[:, :, :z_size].reshape(1, 1, 32)).reshape(3, 64, 64)
-original_x = (original_x * 255)
-# print(original_x.shape)
-matplotlib.pyplot.imshow(np.transpose(np.array(original_x.detach().numpy(), "uint8"), (1, 2, 0)))
-plt.title("Original")
-plt.show()
-# print(y_preds.shape)
-
-for i in range(5):
-    y_preds = torch.normal(mu, sigma)[:, :, i, :]
-    print(y_preds.shape)
-    compare_x = vae.decode(y_preds).reshape(3, 64, 64)
-    compare_x = (compare_x * 255)
-
-
-    matplotlib.pyplot.imshow(np.transpose(np.array(compare_x.detach().numpy(), "uint8"), (1, 2, 0)))
-    plt.title("Possible Future {}".format(i))
-    plt.show()
-# compare_x = vae.decode(z_out)
+# print(pi)
+# original_x = vae.decode(x[:, :, :z_size].reshape(1, 1, 32)).reshape(3, 64, 64)
+# original_x = (original_x * 255)
+# # print(original_x.shape)
+# matplotlib.pyplot.imshow(np.transpose(np.array(original_x.detach().numpy(), "uint8"), (1, 2, 0)))
+# plt.title("Original")
+# plt.show()
+#
+# x = z[0, 11, :].reshape(1, 1, z_size+1)
+# # print(x.shape)
+# hidden = model.init_hidden(1)
+# # (pi, mu, sigma), _ = model(x, hidden)
+# print(pi)
+# original_x = vae.decode(x[:, :, :z_size].reshape(1, 1, 32)).reshape(3, 64, 64)
+# original_x = (original_x * 255)
+# # print(original_x.shape)
+# matplotlib.pyplot.imshow(np.transpose(np.array(original_x.detach().numpy(), "uint8"), (1, 2, 0)))
+# plt.title("Original")
+# plt.show()
+# # print(y_preds.shape)
+#
+# for i in range(5):
+#     y_preds = torch.normal(mu, sigma)[:, :, i, :]
+#     print(y_preds.shape)
+#     compare_x = vae.decode(y_preds).reshape(3, 64, 64)
+#     compare_x = (compare_x * 255)
+#
+#
+#     matplotlib.pyplot.imshow(np.transpose(np.array(compare_x.detach().numpy(), "uint8"), (1, 2, 0)))
+#     plt.title("Possible Future {}".format(i))
+#     plt.show()
+# # compare_x = vae.decode(z_out)

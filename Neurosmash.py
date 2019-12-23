@@ -53,7 +53,7 @@ class Policy(nn.Module):
 
 
     def forward(self, x):
-        x = torch.FloatTensor(x).reshape(1,768,768, 3).permute(0, 3, 1, 2)
+        x = torch.FloatTensor(x).reshape(1,64,64, 3)
         x = self.policymodel(x)  # Made the softmax temp lower
         print(x)
         return torch.softmax(x, dim=1)

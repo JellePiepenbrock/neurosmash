@@ -11,7 +11,7 @@ from torch.distributions import Categorical
 
 ip         = "127.0.0.1" # Ip address that the TCP/IP interface listens to
 port       = 13000       # Port number that the TCP/IP interface listens to
-size       = 768         # Please check the Updates section above for more details
+size       = 64         # Please check the Updates section above for more details
 timescale  = 10     # Please check the Updates section above for more details
 
 # agent = Neurosmash.Agent() # This is an example agent.
@@ -21,13 +21,13 @@ timescale  = 10     # Please check the Updates section above for more details
                            # none (0), left (1) and right (2)
 
 # agent = Neurosmash.RLAgent()
+
 env = Neurosmash.Environment(timescale=timescale) # This is the main environment.
 end, reward, state = env.reset()
 policy = Neurosmash.Policy()
-policy.load_state_dict(torch.load("weights_100episodes_reward_longterm"))
 optimizer = torch.optim.Adam(policy.parameters())
 
-def select_action(state,policy):
+def select_action(state, policy):
     # Select an action (0 or 1) by running policy model and choosing based on the probabilities in state
     state = torch.from_numpy(state).type(torch.FloatTensor)
     # print(state)
