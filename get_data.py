@@ -1,7 +1,7 @@
 import Neurosmash
 import numpy as np
 import torch
-from VAE import VAE
+# from VAE import VAE
 
 ip         = "127.0.0.1" # Ip address that the TCP/IP interface listens to
 port       = 13000       # Port number that the TCP/IP interface listens to
@@ -13,10 +13,10 @@ batch_size = 128
 
 # Load VAE weights
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-vae = VAE(device, image_channels=3).to(device)
-vae.load_state_dict(torch.load("vae_v2.torch"))
+# vae = VAE(device, image_channels=3).to(device)
+# vae.load_state_dict(torch.load("vae_v2.torch"))
 
-vae = vae.cuda()
+# vae = vae.cuda()
 
 def select_action():
     return np.random.randint(low=0, high=3)
@@ -35,6 +35,7 @@ def main(episodes, episode_length):
     file_cnt = 0
 
     while len(all_states) < episodes:
+        print(len(all_states))
         episode_states = []
         episode_actions = []
         episode_dones = []
@@ -45,21 +46,21 @@ def main(episodes, episode_length):
         ep_cnt += 1
 
 
-        for time in range(episode_length):
-
+        # for time in range(episode_length):
+        while True:
             action = select_action()
-            episode_actions.append(action)
+            # episode_actions.append(action)
 
             # Step through environment using chosen action
             done, reward, state = env.step(action)
             state = torch.FloatTensor(state).reshape(size, size, 3) / 255.0
             state = state.permute(2, 0, 1)
 
-            episode_states.append(vae.encode(state.reshape(1, 3, 64, 64).cuda())[0])
+            episode_states.append(state.reshape(3, 64, 64)) #vae.encode(state.reshape(1, 3, 64, 64).cuda())[0])
             episode_actions.append(action)
             episode_dones.append(done)
             episode_rewards.append(reward)
-            print(time)
+          
             if done:
                 break
 
@@ -79,4 +80,4 @@ def main(episodes, episode_length):
     torch.save(torch.stack(all_dones), 'training_dones.pt')
     torch.save(torch.stack(all_rewards), 'training_rewards.pt')
 
-main(100, 50)
+main(2000, 1000)
