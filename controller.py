@@ -3,6 +3,7 @@ import torch
 from torch.distributions import Categorical
 from torch.autograd import Variable
 import numpy as np
+import random
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -27,7 +28,7 @@ class Controller(nn.Module):
         self.loss_history = []
 
     def forward(self, x):
-        x = self.predictor(x)
+        x = self.predictor(x) / 1
 
         return torch.softmax(x, dim=1)
 
@@ -37,7 +38,7 @@ def select_action(state, policy):
 
     # print(state)
     preds = policy(state)
-    # print(state)
+    print(preds)
     c = Categorical(preds)
     action = c.sample()
 
@@ -47,6 +48,10 @@ def select_action(state, policy):
     else:
         policy.policy_history = (c.log_prob(action).to(device))
     return action
+
+## TODO create replay buffer
+
+
 
 def update_policy(policy, optimizer):
     R = 0
