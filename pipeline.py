@@ -10,21 +10,22 @@ learning_rate = 0.01
 gamma = 0.99
 # Setup
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+weighted_loss = 1
 
 ip         = "127.0.0.1" # Ip address that the TCP/IP interface listens to
 port       = 13000       # Port number that the TCP/IP interface listens to
 size       = 64         # Please check the Updates section above for more details
-timescale  = 30     # Please check the Updates section above for more details
+timescale  = 10     # Please check the Updates section above for more details
 
 env = Neurosmash.Environment(timescale=timescale, size=size, port=port, ip=ip)
 
 # Load VAE weights
 vae = VAE(device, image_channels=3).to(device)
-vae.load_state_dict(torch.load("vae_v2.torch"))
+vae.load_state_dict(torch.load("data_folder_vae/vae_v3_weighted_loss_{}.torch".format(weighted_loss)))
 
 # Load RNN weights
-rnn = MDNRNN(32, 10, 5, 1).to(device)
-rnn.load_state_dict(torch.load("rnn.torch"))
+rnn = MDNRNN(32, 256, 5, 1).to(device)
+rnn.load_state_dict(torch.load("rnn_29dec_{}.torch".format(weighted_loss)))
 
 # Load controller
 controller = Controller(gamma).to(device)
@@ -33,6 +34,7 @@ controller = Controller(gamma).to(device)
 optimizer = torch.optim.Adam(controller.parameters())
 
 def main(episodes):
+    reward_save = []
     # Episode lasts until end == 1
     for episode in range(episodes):
         print("Episode: ", episode)
@@ -55,17 +57,12 @@ def main(episodes):
                 (pi, mu, sigma), (hidden_future, _) = rnn(z, hidden)
                 futures.append(hidden_future)
 
-            futures = torch.cat(futures).reshape(30)
+            futures = torch.cat(futures).reshape(3*256)
             # print(futures.shape)
-            state = torch.cat([encoded_visual.reshape(32), futures]).reshape(1, 62)
+            state = torch.cat([encoded_visual.reshape(32), futures]).reshape(1, (32+3*256))
             # print(state.shape)
 
-
-
-
             action = select_action(state, controller).detach()
-
-
             # Env step
             done, reward, state = env.step(action)
             # Save reward
@@ -76,11 +73,18 @@ def main(episodes):
             controller.reward_episode.append(reward)
 
             if done:
+                reward_save.append(reward)
                 print(reward)
                 break
+            elif time == 49:
+                reward_save.append(reward)
+
         # print(reward)
 
         # Actually backpropagate the policy gradient
         update_policy(controller, optimizer)
+    return reward_save
 
-main(259)
+reward_sv = main(1000)
+
+torch.save(reward_sv, "rewards_test")

@@ -14,9 +14,9 @@ class Controller(nn.Module):
 
         # 32 latent vars from VAE, 100 hidden state vars from LSTM
         self.predictor = nn.Sequential(
-            nn.Linear(62, 10),
+            nn.Linear((32+3*256), 256),
             nn.ReLU(),
-            nn.Linear(10, 3)
+            nn.Linear(256, 3)
         )
 
         self.gamma = gamma
