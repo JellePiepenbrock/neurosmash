@@ -12,8 +12,6 @@ import random
 
 import torch.nn.functional as F
 
-# ---------- sep file.
-
 BATCH_SIZE = 128
 GAMMA = 0.999
 EPS_START = 0.9
@@ -21,51 +19,6 @@ EPS_END = 0.05
 EPS_DECAY = 200
 TARGET_UPDATE = 10
 n_actions = 3
-
-def select_action(state):
-    global steps_done
-    sample = random.random()
-    eps_threshold = EPS_END + (EPS_START - EPS_END) * \
-        math.exp(-1. * steps_done / EPS_DECAY)
-    steps_done += 1
-    if sample > eps_threshold:
-        with torch.no_grad():
-            # t.max(1) will return largest column value of each row.
-            # second column on max result is index of where max element was
-            # found, so we pick action with the larger expected reward.
-            return policy_net(state).max(1)[1].view(1, 1)
-    else:
-        return torch.tensor([[random.randrange(n_actions)]], device=device, dtype=torch.long)
-
-episode_durations = []
-
-is_ipython = 'inline' in matplotlib.get_backend()
-if is_ipython:
-    from IPython import display
-
-plt.ion()
-
-
-def plot_durations(wins_prob_list):
-    plt.figure(2)
-    plt.clf()
-    episode_wins = torch.tensor(wins_prob_list, dtype=torch.float)
-    plt.title('Training...')
-    plt.xlabel('Episode')
-    plt.ylabel('Duration')
-    plt.plot(episode_wins.numpy())
-    # Take 100 episode averages and plot them too
-    if len(episode_wins) >= 100:
-        means = episode_wins.unfold(0, 100, 1).mean(1).view(-1)
-        means = torch.cat((torch.zeros(99), means))
-        plt.plot(means.numpy())
-
-    plt.pause(0.001)  # pause a bit so that plots are updated
-    if is_ipython:
-        display.clear_output(wait=True)
-        display.display(plt.gcf())
-
-# ------------------
 
 learning_rate = 0.01
 gamma = 0.99
@@ -101,6 +54,50 @@ memory = ReplayMemory(10000)
 
 steps_done = 0
 
+
+episode_durations = []
+
+is_ipython = 'inline' in matplotlib.get_backend()
+if is_ipython:
+    from IPython import display
+
+plt.ion()
+
+def select_action(state):
+    global steps_done
+    sample = random.random()
+    eps_threshold = EPS_END + (EPS_START - EPS_END) * \
+        math.exp(-1. * steps_done / EPS_DECAY)
+    steps_done += 1
+    if sample > eps_threshold:
+        with torch.no_grad():
+            # t.max(1) will return largest column value of each row.
+            # second column on max result is index of where max element was
+            # found, so we pick action with the larger expected reward.
+            return policy_net(state).max(1)[1].view(1, 1)
+    else:
+        return torch.tensor([[random.randrange(n_actions)]], device=device, dtype=torch.long)
+
+def plot_durations(wins_prob_list):
+    plt.figure(2)
+    plt.clf()
+    episode_wins = torch.tensor(wins_prob_list, dtype=torch.float)
+    plt.title('Training...')
+    plt.xlabel('Episode')
+    plt.ylabel('Duration')
+    plt.plot(episode_wins.numpy())
+    # Take 100 episode averages and plot them too
+    if len(episode_wins) >= 100:
+        means = episode_wins.unfold(0, 100, 1).mean(1).view(-1)
+        means = torch.cat((torch.zeros(99), means))
+        plt.plot(means.numpy())
+
+    plt.pause(0.001)  # pause a bit so that plots are updated
+    if is_ipython:
+        display.clear_output(wait=True)
+        display.display(plt.gcf())
+
+# ------------------
 
 def optimize_model():
     if len(memory) < BATCH_SIZE:
