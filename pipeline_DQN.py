@@ -1,6 +1,6 @@
 from VAE import VAE
 from rnn_vae import MDNRNN
-from controller_DQN import DQN, ReplayMemory, Transition
+from controller_DQN import ReplayMemory, Transition, DQN2
 from torch.autograd import Variable
 import matplotlib.pyplot as plt
 import matplotlib
@@ -46,17 +46,17 @@ if is_ipython:
 plt.ion()
 
 
-def plot_durations():
+def plot_durations(wins_prob_list):
     plt.figure(2)
     plt.clf()
-    durations_t = torch.tensor(episode_durations, dtype=torch.float)
+    episode_wins = torch.tensor(wins_prob_list, dtype=torch.float)
     plt.title('Training...')
     plt.xlabel('Episode')
     plt.ylabel('Duration')
-    plt.plot(durations_t.numpy())
+    plt.plot(episode_wins.numpy())
     # Take 100 episode averages and plot them too
-    if len(durations_t) >= 100:
-        means = durations_t.unfold(0, 100, 1).mean(1).view(-1)
+    if len(episode_wins) >= 100:
+        means = episode_wins.unfold(0, 100, 1).mean(1).view(-1)
         means = torch.cat((torch.zeros(99), means))
         plt.plot(means.numpy())
 
@@ -91,8 +91,8 @@ rnn.load_state_dict(torch.load("./rnn_29dec_{}.torch".format(weighted_loss)))
 rnn.eval()
 
 # Load controller
-policy_net = DQN().to(device)
-target_net = DQN().to(device)
+policy_net = DQN2(64, 64, 3).to(device)
+target_net = DQN2(64, 64, 3).to(device)
 target_net.load_state_dict(policy_net.state_dict())
 target_net.eval()
 
@@ -104,7 +104,7 @@ steps_done = 0
 
 def optimize_model():
     if len(memory) < BATCH_SIZE:
-        return
+        return 0
     transitions = memory.sample(BATCH_SIZE)
     # Transpose the batch (see https://stackoverflow.com/a/19343/3343043 for
     # detailed explanation). This converts batch-array of Transitions
@@ -146,51 +146,57 @@ def optimize_model():
         param.grad.data.clamp_(-1, 1)
     optimizer.step()
 
-def process_state(state):
+    return loss.item()
+
+def process_state(state, world_models=False):
     visual = torch.FloatTensor(state).reshape(size, size, 3) / 255.0
     visual = visual.permute(2, 0, 1)
-    encoded_visual = vae.encode(visual.reshape(1, 3, 64, 64).cuda())[0]
-    # print(encoded_visual.shape)
-    # 3 actions
-    futures = []
-    for i in range(3):
-        action = torch.Tensor([i]).cuda()
-        hidden = rnn.init_hidden(1)
-        z = torch.cat([encoded_visual.reshape(1, 1, 32), action.reshape(1, 1, 1)], dim=2)
-        # print(z.shape)
-        (pi, mu, sigma), (hidden_future, _) = rnn(z, hidden)
-        futures.append(hidden_future)
+    if world_models:
+        encoded_visual = vae.encode(visual.reshape(1, 3, 64, 64).cuda())[0]
+        # print(encoded_visual.shape)
+        # 3 actions
+        futures = []
+        for i in range(3):
+            action = torch.Tensor([i]).cuda()
+            hidden = rnn.init_hidden(1)
+            z = torch.cat([encoded_visual.reshape(1, 1, 32), action.reshape(1, 1, 1)], dim=2)
+            # print(z.shape)
+            (pi, mu, sigma), (hidden_future, _) = rnn(z, hidden)
+            futures.append(hidden_future)
 
-    futures = torch.cat(futures).reshape(3 * 256)
-    state = torch.cat([encoded_visual.reshape(32), futures]).reshape(1, (32 + 3 * 256)).detach()
-    action = select_action(state).detach()
+        futures = torch.cat(futures).reshape(3 * 256)
+        state = torch.cat([encoded_visual.reshape(32), futures]).reshape(1, (32 + 3 * 256)).detach()
+        action = select_action(state).detach()
+    else:
+        state = visual.reshape(1, 3, 64, 64).to(device)
+        action = select_action(state).detach()
+
     return state, action
 
 def main(episodes):
     # based on: https://pytorch.org/tutorials/intermediate/reinforcement_q_learning.html
     reward_save = []
     # Episode lasts until end == 1
+    wins_prob_list = []
+    total_wins = 0
     wins = 0
+    max_t = 50
     for episode in range(episodes):
-        print("Episode: ", episode)
+        print('Starting episode {}'.format(episode))
         end, reward, state_unprocessed = env.reset()  # Reset environment and record the starting state
         # Init state seems to be zeroes in tutorial; but then given that state, the env will probably select a
         # random action..?
+        total_loss = 0
 
-        state, action = process_state(state_unprocessed)
-        done = False
-        # Go through every episode but only 15 timesteps
-        for time in range(50):
-            #TODO: Various sources do not take difference in states, although link above does. Idk if we should.
+        state, action = process_state(state_unprocessed, world_models=False)
+        for t in range(max_t):
             done, reward, state_unprocessed = env.step(action)
 
             # Store previous state, then generate new state based.
-            next_state, next_action = process_state(state_unprocessed)
+            next_state, next_action = process_state(state_unprocessed, world_models=False)
 
-            # Save reward
-            if reward > 0:
-                wins += 1
-                print(reward)
+            if done:
+                next_state = None
 
             # Add to transition matrix: from prev_state to new state; given an action/reward.
             memory.push(state, action, next_state, torch.tensor(reward).reshape(1).to(device))
@@ -200,18 +206,29 @@ def main(episodes):
             action = next_action
 
             # Optimize model.
-            optimize_model()
-
+            loss = optimize_model()
+            total_loss += loss
             # Are we done?
-            if done:
-                reward_save.append(reward)
-                break
-            elif time == 49:
-                reward_save.append(reward)
+            if done or (t == max_t-1):
+                if reward > 0:
+                    wins += 1
+                    total_wins += 1
+                    reward_save.append(reward)
 
-        # Print avg reawrd
+                wins_prob_list.append(total_wins / (episode+1))
+                plot_durations(wins_prob_list)
+                print('End episode {}, average {}, reward {}, done {}, avg loss {}'.format(episode,
+                                                                              wins_prob_list[-1],
+                                                                              reward,
+                                                                              done,
+                                                                              total_loss / t))
+                print('-----------------')
+                break
+
+        # if episode in [500, 1500]:
+        #     max_t -= 50
         # Update the target network, copying all weights and biases in DQN
-        if episode % TARGET_UPDATE == 0:
+        if episode % TARGET_UPDATE == 0 and episode != 0:
             target_net.load_state_dict(policy_net.state_dict())
             print('Win probability past {} episodes: {}'.format(TARGET_UPDATE, wins / TARGET_UPDATE))
             print('-----------------')
@@ -223,5 +240,5 @@ def main(episodes):
 
     return reward_save
 
-reward_sv = main(2000)
+reward_sv = main(2500)
 torch.save(reward_sv, "rewards_test_DQN")
