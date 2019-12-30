@@ -43,9 +43,9 @@ n_hidden = 256
 n_gaussians = 5
 
 
-z2 = torch.load('data_folder_vae/training_data_encoded_weighted_loss_{}.pt'.format(weighted_loss)).to(device)
-aa = torch.load('data_folder_vae/training_actions.pt').to(device)
-print(z2.shape)
+# z2 = torch.load('data_folder_vae/training_data_encoded_weighted_loss_{}.pt'.format(weighted_loss)).to(device)
+# aa = torch.load('data_folder_vae/training_actions.pt').to(device)
+# print(z2.shape)
 # print(torch.Tensor(aa))
 # print(aa.shape)
 # file = open('PCA_model.pkl','r')
@@ -73,15 +73,15 @@ print(z2.shape)
 # print(z.shape)
 # # THIS LINE DOES LIKE 12 THINGS
 #
-z2 = z2.reshape(ds_size, 20, 32)
+# z2 = z2.reshape(ds_size, 20, 32)
 # print(z2.shape, aa.shape)
-z = torch.cat([z2[:, 1:, :], aa.reshape(ds_size, 20, 1)[:, :-1, :]], dim=2)
+# z = torch.cat([z2[:, 1:, :], aa.reshape(ds_size, 20, 1)[:, :-1, :]], dim=2)
 # print(z)
 # print(z.shape)
 # print(pca.shape)
 
 # z = torch.randn(200, 150, 4).cuda()
-z = z.to(device)
+# z = z.to(device)
 
 def reduce_logsumexp(x, pi, dim=None):
 
