@@ -1,12 +1,9 @@
 from VAE import VAE
 from rnn_vae import MDNRNN
 from controller_DQN import ReplayMemory, Transition, DQN2
-from torch.autograd import Variable
 import matplotlib.pyplot as plt
-import matplotlib
 import torch
 import math
-import numpy as np
 import Neurosmash
 import random
 import copy
@@ -14,7 +11,7 @@ import copy
 import torch.nn.functional as F
 
 BATCH_SIZE = 64
-GAMMA = 0.9
+GAMMA = 0.99
 EPS_START = 0.9
 EPS_END = 0.01
 EPS_DECAY = 200
@@ -22,6 +19,7 @@ TARGET_UPDATE = 10
 n_actions = 3
 
 learning_rate = 1e-3
+
 # gamma = 0.99
 # Setup
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -50,7 +48,7 @@ target_net = DQN2(64, 64, 3).to(device)
 target_net.load_state_dict(policy_net.state_dict())
 target_net.eval()
 
-optimizer = torch.optim.Adam(policy_net.parameters())
+optimizer = torch.optim.RMSprop(policy_net.parameters())
 memory = ReplayMemory(10000)
 
 steps_done = 0
@@ -145,8 +143,6 @@ def optimize_model():
         param.grad.data.clamp_(-1, 1)
         tot_grad += torch.sum(param.grad.data)
 
-    if 512 > len(memory) > 256:
-        print(tot_grad)
     if tot_grad == 0.0:
         print('GRADIENT IS ZERO')
     optimizer.step()
@@ -236,20 +232,45 @@ def main(episodes):
             action = next_action
 
             # Optimize model.
-            loss = optimize_model()
-            total_loss += loss
-            # Are we done?
             if done:
                 # Only append if win/loss; do not count draws as we do not want states where the user
                 # gets stuck due to buggy environment.
-                if r > 0:
-                    total_wins += 1
+                '''
+                If we only add states were we win, can argue:
+                
+                We essentially cannot reward or punish bad states as we only get a reward if we win. As such,
+                we can only teach the agent about states where its action resulted in a larger or smaller reward.
+                We do this by splitting the reward over its episodes, thus rewarding its states where it won
+                faster than when it took longer. As such, we teach the agent to 1) win and 2) win faster.
+                
+                Furthermore, as the opponent only follows our agent and since we cannot push the user of the platform 
+                (due to the gravity rules, the agents simply fall over when bumping into each other), the only way to 
+                win is to make a sharp turn around one of the edges, after which the opponent would fall off.
+                
+                TODO: 
+                1. Train default.
+                2. Train as described above.
+                '''
+                # As we also delay adding to batch, we should also delay updates.
+                # if (r > 0) or (cnt_wins_losses < 5):
+                #     if r > 0:
+                #         total_wins += 1
+                #         reward = torch.tensor(10.0).reshape(1).to(device)
+                #     else:
+                #         reward = torch.tensor(0.0).reshape(1).to(device)
+                for i, (state, action, next_state, reward) in enumerate(batch):
+                    if i == 0:
+                        print('Adding reward: {}'.format(reward/len(batch)))
+                    memory.push(state, action, next_state, reward/len(batch))
+                    loss = optimize_model()
+                    total_loss += loss
+
+
                 cnt_wins_losses += 1
                 wins_prob_list.append(total_wins / cnt_wins_losses)
                 plot_durations(wins_prob_list)
 
-                for state, action, next_state, reward in batch:
-                    memory.push(state, action, next_state, reward)
+
                 batch = []
                 print('End episode {}, average {}, reward {}, done {}, avg loss {}'.format(cnt_wins_losses,
                                                                               wins_prob_list[-1],
@@ -266,21 +287,23 @@ def main(episodes):
                 print('Target net and policy net are unequal:', compare_models(target_net, policy_net))
                 print('-----------------')
 
-                if cnt_wins_losses == 500:
-                    # Reduce LR
-                    adjust_learning_rate()
+                # if cnt_wins_losses == 500:
+                #     # Reduce LR
+                #     adjust_learning_rate()
                 if (cnt_wins_losses % TARGET_UPDATE == 0):
                     target_net.load_state_dict(policy_net.state_dict())
                     print('Target net and policy net are unequal AFTER UPDATE:', compare_models(target_net, policy_net))
                     print('-----------------')
                     torch.save(policy_net.state_dict(), './DQN_vanilla.pt')
 
+            if done or (t == (max_t-1)):
+                # reset batch and env.
+                batch = []
                 break
-
 
     print('Complete')
     # plt.ioff()
     # plt.show()
 
 
-main(5000)
+main(2000)
