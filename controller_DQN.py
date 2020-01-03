@@ -50,16 +50,25 @@ class DQN(nn.Module):
         x = self.predictor(x)
         return x
 
+class Flatten(nn.Module):
+    def forward(self, input):
+        return input.view(input.size(0), -1)
+
 class DQN2(nn.Module):
 
     def __init__(self, h, w, outputs):
         super(DQN2, self).__init__()
-        self.conv1 = nn.Conv2d(3, 16, kernel_size=5, stride=2)
+
+        self.conv1 = nn.Conv2d(in_channels=3, out_channels=16, kernel_size=5, stride=2)
         self.bn1 = nn.BatchNorm2d(16)
-        self.conv2 = nn.Conv2d(16, 32, kernel_size=5, stride=2)
+        self.r1 = nn.ReLU()
+        self.conv2 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=5, stride=2)
+        self.r2 = nn.ReLU()
         self.bn2 = nn.BatchNorm2d(32)
-        self.conv3 = nn.Conv2d(32, 32, kernel_size=5, stride=2)
+        self.conv3 = nn.Conv2d(in_channels=32, out_channels=32, kernel_size=5, stride=2)
+        self.r3 = nn.ReLU()
         self.bn3 = nn.BatchNorm2d(32)
+        self.flat = Flatten()
 
         # Number of Linear input connections depends on output of conv2d layers
         # and therefore the input image size, so compute it.
@@ -67,14 +76,24 @@ class DQN2(nn.Module):
             return (size - (kernel_size - 1) - 1) // stride  + 1
         convw = conv2d_size_out(conv2d_size_out(conv2d_size_out(w)))
         convh = conv2d_size_out(conv2d_size_out(conv2d_size_out(h)))
-        linear_input_size = convw * convh * 32
-        self.head = nn.Linear(linear_input_size, outputs)
-
+        # linear_input_size = convw * convh * 32
+        # print(linear_input_size)
+        linear_input_size = 800
+        # self.l1 = nn.Linear(linear_input_size, 64)
+        # self.r4 = nn.ReLU()
+        # self.l2 = nn.Linear(linear_input_size, 256)
+        # self.r5 = nn.ReLU()
+        self.out = nn.Linear(linear_input_size, outputs)
     # Called with either one element to determine next action, or a batch
     # during optimization. Returns tensor([[left0exp,right0exp]...]).
     def forward(self, x):
-        x = F.relu(self.bn1(self.conv1(x)))
-        x = F.relu(self.bn2(self.conv2(x)))
-        x = F.relu(self.bn3(self.conv3(x)))
-        x = self.head(x.view(x.size(0), -1))
-        return torch.softmax(x, dim=1)
+        x = self.bn1(self.r1(self.conv1(x)))
+        x = self.bn2(self.r2(self.conv2(x)))
+        x = self.bn3(self.r3(self.conv3(x)))
+        
+        x = self.flat(x)
+        
+        # x = self.r4(self.l1(x))
+        # x = self.r5(self.l2(x))
+        x = self.out(x)
+        return x

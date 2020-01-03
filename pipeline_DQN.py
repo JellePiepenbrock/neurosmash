@@ -9,19 +9,20 @@ import math
 import numpy as np
 import Neurosmash
 import random
+import copy
 
 import torch.nn.functional as F
 
-BATCH_SIZE = 128
-GAMMA = 0.999
+BATCH_SIZE = 64
+GAMMA = 0.9
 EPS_START = 0.9
-EPS_END = 0.05
+EPS_END = 0.01
 EPS_DECAY = 200
 TARGET_UPDATE = 10
 n_actions = 3
 
-learning_rate = 0.01
-gamma = 0.99
+learning_rate = 1e-3
+# gamma = 0.99
 # Setup
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 weighted_loss = 1
@@ -49,7 +50,7 @@ target_net = DQN2(64, 64, 3).to(device)
 target_net.load_state_dict(policy_net.state_dict())
 target_net.eval()
 
-optimizer = torch.optim.RMSprop(policy_net.parameters())
+optimizer = torch.optim.Adam(policy_net.parameters())
 memory = ReplayMemory(10000)
 
 steps_done = 0
@@ -57,11 +58,11 @@ steps_done = 0
 
 episode_durations = []
 
-is_ipython = 'inline' in matplotlib.get_backend()
-if is_ipython:
-    from IPython import display
+# is_ipython = 'inline' in matplotlib.get_backend()
+# if is_ipython:
+#     from IPython import display
 
-plt.ion()
+# plt.ion()
 
 def select_action(state):
     global steps_done
@@ -84,18 +85,19 @@ def plot_durations(wins_prob_list):
     episode_wins = torch.tensor(wins_prob_list, dtype=torch.float)
     plt.title('Training...')
     plt.xlabel('Episode')
-    plt.ylabel('Duration')
+    plt.ylabel('Avg win probability')
     plt.plot(episode_wins.numpy())
     # Take 100 episode averages and plot them too
     if len(episode_wins) >= 100:
         means = episode_wins.unfold(0, 100, 1).mean(1).view(-1)
         means = torch.cat((torch.zeros(99), means))
         plt.plot(means.numpy())
-
+    
+    plt.savefig('./vanilla_DQN_03_01_2019.png')
     plt.pause(0.001)  # pause a bit so that plots are updated
-    if is_ipython:
-        display.clear_output(wait=True)
-        display.display(plt.gcf())
+    # if is_ipython:
+    #     display.clear_output(wait=True)
+    #     display.display(plt.gcf())
 
 # ------------------
 
@@ -117,12 +119,10 @@ def optimize_model():
     state_batch = torch.cat(batch.state)
     action_batch = torch.cat(batch.action)
     reward_batch = torch.cat(batch.reward)
-
     # Compute Q(s_t, a) - the model computes Q(s_t), then we select the
     # columns of actions taken. These are the actions which would've been taken
     # for each batch state according to policy_net
     state_action_values = policy_net(state_batch).gather(1, action_batch)
-
     # Compute V(s_{t+1}) for all next states.
     # Expected values of actions for non_final_next_states are computed based
     # on the "older" target_net; selecting their best reward with max(1)[0].
@@ -132,17 +132,24 @@ def optimize_model():
     next_state_values[non_final_mask] = target_net(non_final_next_states).max(1)[0].detach()
     # Compute the expected Q values
     expected_state_action_values = (next_state_values * GAMMA) + reward_batch
-
     # Compute Huber loss
     loss = F.smooth_l1_loss(state_action_values, expected_state_action_values.unsqueeze(1))
+    # target = (reward_batch + GAMMA * next_state_values).data
+    # loss = (state_action_values - target).pow(2).mean().to(device)
 
     # Optimize the model
     optimizer.zero_grad()
     loss.backward()
-    for param in policy_net.parameters():
+    tot_grad = 0.0
+    for i, param in enumerate(policy_net.parameters()):
         param.grad.data.clamp_(-1, 1)
-    optimizer.step()
+        tot_grad += torch.sum(param.grad.data)
 
+    if 512 > len(memory) > 256:
+        print(tot_grad)
+    if tot_grad == 0.0:
+        print('GRADIENT IS ZERO')
+    optimizer.step()
     return loss.item()
 
 def process_state(state, world_models=False):
@@ -170,24 +177,50 @@ def process_state(state, world_models=False):
 
     return state, action
 
+def compare_models(model_1, model_2):
+    models_differ = 0
+    for key_item_1, key_item_2 in zip(model_1.state_dict().items(), model_2.state_dict().items()):
+        if torch.equal(key_item_1[1], key_item_2[1]):
+            pass
+        else:
+            models_differ += 1
+    if models_differ == 0:
+        return False
+    else:
+        return True
+
+def adjust_learning_rate():
+    global optimizer
+    print('Reducing learning rate')
+    for param_group in optimizer.param_groups:
+        param_group['lr'] *= 0.1
+        print(param_group['lr'])
+    print('------------------------')
+
 def main(episodes):
     # based on: https://pytorch.org/tutorials/intermediate/reinforcement_q_learning.html
+
     reward_save = []
     # Episode lasts until end == 1
     wins_prob_list = []
     total_wins = 0
-    wins = 0
-    max_t = 50
-    for episode in range(episodes):
-        print('Starting episode {}'.format(episode))
-        end, reward, state_unprocessed = env.reset()  # Reset environment and record the starting state
+    max_t = 500
+    cnt_updated = 0
+    cnt_wins_losses = 0
+
+    batch = []
+
+    while cnt_wins_losses < episodes:
+        print('Starting episode {}'.format(cnt_wins_losses))
+        prev_weights = copy.deepcopy(policy_net)
+        end, r, state_unprocessed = env.reset()  # Reset environment and record the starting state
         # Init state seems to be zeroes in tutorial; but then given that state, the env will probably select a
         # random action..?
         total_loss = 0
 
         state, action = process_state(state_unprocessed, world_models=False)
         for t in range(max_t):
-            done, reward, state_unprocessed = env.step(action)
+            done, r, state_unprocessed = env.step(action)
 
             # Store previous state, then generate new state based.
             next_state, next_action = process_state(state_unprocessed, world_models=False)
@@ -195,8 +228,8 @@ def main(episodes):
             if done:
                 next_state = None
 
-            # Add to transition matrix: from prev_state to new state; given an action/reward.
-            memory.push(state, action, next_state, torch.tensor(reward).reshape(1).to(device))
+            # Add to batch
+            batch.append([state, action, next_state, torch.tensor(r).reshape(1).to(device)])
 
             # Get new transition state.
             state = next_state
@@ -206,36 +239,47 @@ def main(episodes):
             loss = optimize_model()
             total_loss += loss
             # Are we done?
-            if done or (t == max_t-1):
-                if reward > 0:
-                    wins += 1
+            if done:
+                # Only append if win/loss; do not count draws.
+                if r > 0:
                     total_wins += 1
-                    reward_save.append(reward)
-
-                wins_prob_list.append(total_wins / (episode+1))
+                cnt_wins_losses += 1
+                wins_prob_list.append(total_wins / cnt_wins_losses)
                 plot_durations(wins_prob_list)
-                print('End episode {}, average {}, reward {}, done {}, avg loss {}'.format(episode,
+
+                for state, action, next_state, reward in batch:
+                    memory.push(state, action, next_state, reward)
+                batch = []
+                print('End episode {}, average {}, reward {}, done {}, avg loss {}'.format(cnt_wins_losses,
                                                                               wins_prob_list[-1],
-                                                                              reward,
+                                                                              r,
                                                                               done,
                                                                               total_loss / t))
+                print('Number of memory slots filled: ', len(memory))
+
+                if compare_models(policy_net, prev_weights):
+                    cnt_updated = 0
+                else:
+                    cnt_updated += 1
+                print('Policy network not changed for {} episodes.'.format(cnt_updated))
+                print('Target net and policy net are unequal:', compare_models(target_net, policy_net))
                 print('-----------------')
+
+                if cnt_wins_losses == 500:
+                    # Reduce LR
+                    adjust_learning_rate()
+                if (cnt_wins_losses % TARGET_UPDATE == 0):
+                    target_net.load_state_dict(policy_net.state_dict())
+                    print('Target net and policy net are unequal AFTER UPDATE:', compare_models(target_net, policy_net))
+                    print('-----------------')
+                    torch.save(policy_net.state_dict(), './DQN_vanilla.pt')
+
                 break
 
-        # if episode in [500, 1500]:
-        #     max_t -= 50
-        # Update the target network, copying all weights and biases in DQN
-        if episode % TARGET_UPDATE == 0 and episode != 0:
-            target_net.load_state_dict(policy_net.state_dict())
-            print('Win probability past {} episodes: {}'.format(TARGET_UPDATE, wins / TARGET_UPDATE))
-            print('-----------------')
-            wins = 0
 
     print('Complete')
     # plt.ioff()
     # plt.show()
 
-    return reward_save
 
-reward_sv = main(2500)
-torch.save(reward_sv, "rewards_test_DQN")
+main(5000)
