@@ -240,7 +240,8 @@ def main(episodes):
             total_loss += loss
             # Are we done?
             if done:
-                # Only append if win/loss; do not count draws.
+                # Only append if win/loss; do not count draws as we do not want states where the user
+                # gets stuck due to buggy environment.
                 if r > 0:
                     total_wins += 1
                 cnt_wins_losses += 1
