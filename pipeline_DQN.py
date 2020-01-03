@@ -274,12 +274,12 @@ def main(episodes):
                 plot_durations(wins_prob_list)
 
 
-                batch = []
                 print('End episode {}, average {}, reward {}, done {}, avg loss {}'.format(cnt_wins_losses,
                                                                               wins_prob_list[-1],
                                                                               r,
                                                                               done,
                                                                               total_loss / t))
+                print('Size of batch', len(batch))
                 print('Number of memory slots filled: ', len(memory))
 
                 if compare_models(policy_net, prev_weights):
