@@ -233,6 +233,9 @@ def main(episodes):
 
             # Optimize model.
             if done:
+                if r > 0:
+                    total_wins += 1
+
                 # Only append if win/loss; do not count draws as we do not want states where the user
                 # gets stuck due to buggy environment.
                 '''
@@ -259,7 +262,7 @@ def main(episodes):
                 #     else:
                 #         reward = torch.tensor(0.0).reshape(1).to(device)
                 for i, (state, action, next_state, reward) in enumerate(batch):
-                    if i == 0:
+                    if i == (len(batch)-1):
                         print('Adding reward: {}'.format(reward/len(batch)))
                     memory.push(state, action, next_state, reward/len(batch))
                     loss = optimize_model()
