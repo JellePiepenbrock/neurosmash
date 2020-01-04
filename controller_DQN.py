@@ -59,15 +59,15 @@ class DQN2(nn.Module):
     def __init__(self, h, w, outputs):
         super(DQN2, self).__init__()
 
-        self.conv1 = nn.Conv2d(in_channels=3, out_channels=16, kernel_size=5, stride=2)
-        self.bn1 = nn.BatchNorm2d(16)
+        self.conv1 = nn.Conv2d(in_channels=3, out_channels=8, kernel_size=5, stride=2)
+        # self.bn1 = nn.BatchNorm2d(16)
         self.r1 = nn.ReLU()
-        self.conv2 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=5, stride=2)
+        self.conv2 = nn.Conv2d(in_channels=8, out_channels=16, kernel_size=5, stride=2)
         self.r2 = nn.ReLU()
-        self.bn2 = nn.BatchNorm2d(32)
-        self.conv3 = nn.Conv2d(in_channels=32, out_channels=32, kernel_size=5, stride=2)
+        # self.bn2 = nn.BatchNorm2d(32)
+        self.conv3 = nn.Conv2d(in_channels=16, out_channels=16, kernel_size=5, stride=2)
         self.r3 = nn.ReLU()
-        self.bn3 = nn.BatchNorm2d(32)
+        # self.bn3 = nn.BatchNorm2d(32)
         self.flat = Flatten()
 
         # Number of Linear input connections depends on output of conv2d layers
@@ -78,22 +78,22 @@ class DQN2(nn.Module):
         convh = conv2d_size_out(conv2d_size_out(conv2d_size_out(h)))
         # linear_input_size = convw * convh * 32
         # print(linear_input_size)
-        linear_input_size = 800
+        linear_input_size = 400
         # self.l1 = nn.Linear(linear_input_size, 64)
         # self.r4 = nn.ReLU()
-        # self.l2 = nn.Linear(linear_input_size, 256)
-        # self.r5 = nn.ReLU()
-        self.out = nn.Linear(linear_input_size, outputs)
+        self.l1 = nn.Linear(linear_input_size, 256)
+        self.r4 = nn.ReLU()
+        self.out = nn.Linear(256, outputs)
     # Called with either one element to determine next action, or a batch
     # during optimization. Returns tensor([[left0exp,right0exp]...]).
     def forward(self, x):
-        x = self.bn1(self.r1(self.conv1(x)))
-        x = self.bn2(self.r2(self.conv2(x)))
-        x = self.bn3(self.r3(self.conv3(x)))
+        x = self.r1(self.conv1(x))
+        x = self.r2(self.conv2(x))
+        x = self.r3(self.conv3(x))
         
         x = self.flat(x)
         
-        # x = self.r4(self.l1(x))
+        x = self.r4(self.l1(x))
         # x = self.r5(self.l2(x))
         x = self.out(x)
         return x

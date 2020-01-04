@@ -10,6 +10,8 @@ import copy
 
 import torch.nn.functional as F
 
+torch.manual_seed(42)
+
 BATCH_SIZE = 64
 GAMMA = 0.99
 EPS_START = 0.9
@@ -18,7 +20,7 @@ EPS_DECAY = 200
 TARGET_UPDATE = 10
 n_actions = 3
 
-learning_rate = 1e-3
+learning_rate = 1e-2
 
 # gamma = 0.99
 # Setup
@@ -37,6 +39,15 @@ vae = VAE(device, image_channels=3).to(device)
 vae.load_state_dict(torch.load("./data_folder_vae/vae_v3_weighted_loss_{}.torch".format(weighted_loss)))
 vae.eval()
 
+'''
+70% avg is with
+gamma = 0.99
+eps_end = 0.01
+lr = 1e-2
+rmsprop
+
+'''
+
 # Load RNN weights
 rnn = MDNRNN(32, 256, 5, 1).to(device)
 rnn.load_state_dict(torch.load("./rnn_29dec_{}.torch".format(weighted_loss)))
@@ -48,13 +59,10 @@ target_net = DQN2(64, 64, 3).to(device)
 target_net.load_state_dict(policy_net.state_dict())
 target_net.eval()
 
-optimizer = torch.optim.RMSprop(policy_net.parameters())
+optimizer = torch.optim.RMSprop(policy_net.parameters(), lr=learning_rate)
 memory = ReplayMemory(10000)
 
 steps_done = 0
-
-
-episode_durations = []
 
 # is_ipython = 'inline' in matplotlib.get_backend()
 # if is_ipython:
@@ -62,13 +70,13 @@ episode_durations = []
 
 # plt.ion()
 
-def select_action(state):
+def select_action(state, eval=False):
     global steps_done
     sample = random.random()
     eps_threshold = EPS_END + (EPS_START - EPS_END) * \
         math.exp(-1. * steps_done / EPS_DECAY)
     steps_done += 1
-    if sample > eps_threshold:
+    if (sample > eps_threshold) or eval:
         with torch.no_grad():
             # t.max(1) will return largest column value of each row.
             # second column on max result is index of where max element was
@@ -91,7 +99,7 @@ def plot_durations(wins_prob_list):
         means = torch.cat((torch.zeros(99), means))
         plt.plot(means.numpy())
     
-    plt.savefig('./vanilla_DQN_03_01_2019.png')
+    plt.savefig('./vanilla_DQN_04_01_2019.png')
     plt.pause(0.001)  # pause a bit so that plots are updated
     # if is_ipython:
     #     display.clear_output(wait=True)
@@ -139,6 +147,7 @@ def optimize_model():
     optimizer.zero_grad()
     loss.backward()
     tot_grad = 0.0
+
     for i, param in enumerate(policy_net.parameters()):
         param.grad.data.clamp_(-1, 1)
         tot_grad += torch.sum(param.grad.data)
@@ -148,7 +157,7 @@ def optimize_model():
     optimizer.step()
     return loss.item()
 
-def process_state(state, world_models=False):
+def process_state(state, world_models=False, eval=False):
     visual = torch.FloatTensor(state).reshape(size, size, 3) / 255.0
     visual = visual.permute(2, 0, 1)
     if world_models:
@@ -166,10 +175,10 @@ def process_state(state, world_models=False):
 
         futures = torch.cat(futures).reshape(3 * 256)
         state = torch.cat([encoded_visual.reshape(32), futures]).reshape(1, (32 + 3 * 256)).detach()
-        action = select_action(state).detach()
+        action = select_action(state, eval).detach()
     else:
         state = visual.reshape(1, 3, 64, 64).to(device)
-        action = select_action(state).detach()
+        action = select_action(state, eval).detach()
 
     return state, action
 
@@ -195,8 +204,6 @@ def adjust_learning_rate():
 
 def main(episodes):
     # based on: https://pytorch.org/tutorials/intermediate/reinforcement_q_learning.html
-
-    reward_save = []
     # Episode lasts until end == 1
     wins_prob_list = []
     total_wins = 0
@@ -205,7 +212,6 @@ def main(episodes):
     cnt_wins_losses = 0
 
     batch = []
-
     while cnt_wins_losses < episodes:
         print('Starting episode {}'.format(cnt_wins_losses))
         prev_weights = copy.deepcopy(policy_net)
@@ -225,49 +231,26 @@ def main(episodes):
                 next_state = None
 
             # Add to batch
-            batch.append([state, action, next_state, torch.tensor(r).reshape(1).to(device)])
+            batch.append([state, action, next_state, torch.tensor(r * 1.0).reshape(1).to(device)])
 
             # Get new transition state.
             state = next_state
             action = next_action
 
-            # Optimize model.
+            # Only append and train if win/loss; do not count
+            # draws as we do not want states where the user
+            # gets stuck due to buggy environment.
             if done:
                 if r > 0:
                     total_wins += 1
 
-                # Only append if win/loss; do not count draws as we do not want states where the user
-                # gets stuck due to buggy environment.
-                '''
-                If we only add states were we win, can argue:
-                
-                We essentially cannot reward or punish bad states as we only get a reward if we win. As such,
-                we can only teach the agent about states where its action resulted in a larger or smaller reward.
-                We do this by splitting the reward over its episodes, thus rewarding its states where it won
-                faster than when it took longer. As such, we teach the agent to 1) win and 2) win faster.
-                
-                Furthermore, as the opponent only follows our agent and since we cannot push the user of the platform 
-                (due to the gravity rules, the agents simply fall over when bumping into each other), the only way to 
-                win is to make a sharp turn around one of the edges, after which the opponent would fall off.
-                
-                TODO: 
-                1. Train default.
-                2. Train as described above.
-                '''
-                # As we also delay adding to batch, we should also delay updates.
-                # if (r > 0) or (cnt_wins_losses < 5):
-                #     if r > 0:
-                #         total_wins += 1
-                #         reward = torch.tensor(10.0).reshape(1).to(device)
-                #     else:
-                #         reward = torch.tensor(0.0).reshape(1).to(device)
                 for i, (state, action, next_state, reward) in enumerate(batch):
                     if i == (len(batch)-1):
-                        print('Adding reward: {}'.format(reward/len(batch)))
-                    memory.push(state, action, next_state, reward/len(batch))
+                        print('Adding reward: {}'.format(reward))
+                    memory.push(state, action, next_state, reward)
+                    # Optimize model.
                     loss = optimize_model()
                     total_loss += loss
-
 
                 cnt_wins_losses += 1
                 wins_prob_list.append(total_wins / cnt_wins_losses)
@@ -290,21 +273,47 @@ def main(episodes):
                 print('Target net and policy net are unequal:', compare_models(target_net, policy_net))
                 print('-----------------')
 
-                # if cnt_wins_losses == 500:
-                #     # Reduce LR
-                #     adjust_learning_rate()
-                if (cnt_wins_losses % TARGET_UPDATE == 0):
+                if cnt_wins_losses == 300:
+                    # Reduce LR
+                    adjust_learning_rate()
+                if cnt_wins_losses % TARGET_UPDATE == 0:
                     target_net.load_state_dict(policy_net.state_dict())
                     print('Target net and policy net are unequal AFTER UPDATE:', compare_models(target_net, policy_net))
                     print('-----------------')
-                    torch.save(policy_net.state_dict(), './DQN_vanilla.pt')
+                    torch.save(policy_net.state_dict(), './DQN_vanilla_2.pt')
 
             if done or (t == (max_t-1)):
                 # reset batch and env.
                 batch = []
                 break
 
-    print('Complete')
+    # TODO Evaluate
+    #TODO: After 2k episodes; save model; play 10x100 episodes and average wins/losses.
+    # for i in range(10):
+    #     total_eps = 0
+    #     total_wins = 0
+    #     while total_eps < 100:
+    #         end, r, state_unprocessed = env.reset()  # Reset environment and record the starting state
+    #         # Init state seems to be zeroes in tutorial; but then given that state, the env will probably select a
+    #         # random action..?
+    #         total_loss = 0
+    #
+    #         state, action = process_state(state_unprocessed, world_models=False, eval=True)
+    #         for t in range(max_t):
+    #             done, r, state_unprocessed = env.step(action)
+    #
+    #             # Store previous state, then generate new state based.
+    #             next_state, action = process_state(state_unprocessed, world_models=False, eval=True)
+    #
+    #             if done:
+    #                 if r > 0:
+    #                     total_wins += 1
+    #             total_eps += 1
+    #
+    #             break
+    #
+    #
+    #     print('Average for simulation {} was {}'.format(i, total_wins / total_eps))
     # plt.ioff()
     # plt.show()
 
