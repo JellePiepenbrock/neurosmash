@@ -35,13 +35,13 @@ class ReplayMemory(object):
     def __len__(self):
         return len(self.memory)
 
-class DQN(nn.Module):
-    def __init__(self):
-        super(DQN, self).__init__()
+class DQN_VAE(nn.Module):
+    def __init__(self, h, w, outputs):
+        super(DQN_VAE, self).__init__()
         self.predictor = nn.Sequential(
             nn.Linear((32+3*256), 256),
             nn.ReLU(),
-            nn.Linear(256, 3)
+            nn.Linear(256, outputs)
         )
 
     # Called with either one element to determine next action, or a batch

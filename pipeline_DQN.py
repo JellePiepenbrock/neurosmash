@@ -1,6 +1,6 @@
 from VAE import VAE
 from rnn_vae import MDNRNN
-from controller_DQN import ReplayMemory, Transition, DQN2
+from controller_DQN import ReplayMemory, Transition, DQN2, DQN_VAE
 import matplotlib.pyplot as plt
 import torch
 import math
@@ -54,8 +54,8 @@ rnn.load_state_dict(torch.load("./rnn_29dec_{}.torch".format(weighted_loss)))
 rnn.eval()
 
 # Load controller
-policy_net = DQN2(64, 64, 3).to(device)
-target_net = DQN2(64, 64, 3).to(device)
+policy_net = DQN_VAE(64, 64, 3).to(device)
+target_net = DQN_VAE(64, 64, 3).to(device)
 target_net.load_state_dict(policy_net.state_dict())
 target_net.eval()
 
@@ -99,7 +99,7 @@ def plot_durations(wins_prob_list):
         means = torch.cat((torch.zeros(99), means))
         plt.plot(means.numpy())
     
-    plt.savefig('./vanilla_DQN_04_01_2019.png')
+    plt.savefig('./vanilla_DQN_VAE_04_01_2019.png')
     plt.pause(0.001)  # pause a bit so that plots are updated
     # if is_ipython:
     #     display.clear_output(wait=True)
@@ -220,12 +220,12 @@ def main(episodes):
         # random action..?
         total_loss = 0
 
-        state, action = process_state(state_unprocessed, world_models=False)
+        state, action = process_state(state_unprocessed, world_models=True)
         for t in range(max_t):
             done, r, state_unprocessed = env.step(action)
 
             # Store previous state, then generate new state based.
-            next_state, next_action = process_state(state_unprocessed, world_models=False)
+            next_state, next_action = process_state(state_unprocessed, world_models=True)
 
             if done:
                 next_state = None
@@ -273,14 +273,14 @@ def main(episodes):
                 print('Target net and policy net are unequal:', compare_models(target_net, policy_net))
                 print('-----------------')
 
-                if cnt_wins_losses == 300:
+                if cnt_wins_losses == 500:
                     # Reduce LR
                     adjust_learning_rate()
                 if cnt_wins_losses % TARGET_UPDATE == 0:
                     target_net.load_state_dict(policy_net.state_dict())
                     print('Target net and policy net are unequal AFTER UPDATE:', compare_models(target_net, policy_net))
                     print('-----------------')
-                    torch.save(policy_net.state_dict(), './DQN_vanilla_2.pt')
+                    torch.save(policy_net.state_dict(), './DQN_VAE_0.pt')
 
             if done or (t == (max_t-1)):
                 # reset batch and env.
