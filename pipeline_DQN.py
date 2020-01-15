@@ -89,6 +89,7 @@ def plot_durations(wins_prob_list):
     plt.figure(2)
     plt.clf()
     episode_wins = torch.tensor(wins_prob_list, dtype=torch.float)
+    torch.save(episode_wins, "episode_wins.data")
     plt.title('Training...')
     plt.xlabel('Episode')
     plt.ylabel('Avg win probability')
@@ -98,8 +99,8 @@ def plot_durations(wins_prob_list):
         means = episode_wins.unfold(0, 100, 1).mean(1).view(-1)
         means = torch.cat((torch.zeros(99), means))
         plt.plot(means.numpy())
-    
-    plt.savefig('./vanilla_DQN_VAE_10_01_2019.png')
+    plt.ylim(0, 1)
+    plt.savefig('./vanilla_DQN_VAE_15_01_2019.png')
     plt.pause(0.001)  # pause a bit so that plots are updated
     # if is_ipython:
     #     display.clear_output(wait=True)
@@ -158,7 +159,7 @@ def optimize_model():
     return loss.item()
 
 def process_state(state, t, world_models=False, eval=False):
-    visual = torch.FloatTensor(state).reshape(size, size, 3) / 255.0 * 0.0
+    visual = torch.FloatTensor(state).reshape(size, size, 3) / 255.0
     # visual = visual.clone()
 
     visual = visual.permute(2, 0, 1)
@@ -226,7 +227,7 @@ def main(episodes):
         # random action..?
         total_loss = 0
 
-        state, action = process_state(state_unprocessed,0, world_models=True)
+        state, action = process_state(state_unprocessed, 0, world_models=True)
         for t in range(max_t):
             done, r, state_unprocessed = env.step(action)
 
@@ -287,7 +288,7 @@ def main(episodes):
                     target_net.load_state_dict(policy_net.state_dict())
                     print('Target net and policy net are unequal AFTER UPDATE:', compare_models(target_net, policy_net))
                     print('-----------------')
-                    torch.save(policy_net.state_dict(), './DQN_VAE_0_10jan.pt')
+                    torch.save(policy_net.state_dict(), './DQN_VAE_0_15jan.pt')
 
             if done or (t == (max_t-1)):
                 # reset batch and env.
@@ -325,4 +326,4 @@ def main(episodes):
     # plt.show()
 
 
-main(2000)
+main(20)
