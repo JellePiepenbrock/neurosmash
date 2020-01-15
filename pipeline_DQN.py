@@ -99,7 +99,7 @@ def plot_durations(wins_prob_list):
         means = torch.cat((torch.zeros(99), means))
         plt.plot(means.numpy())
     
-    plt.savefig('./vanilla_DQN_VAE_04_01_2019.png')
+    plt.savefig('./vanilla_DQN_VAE_10_01_2019.png')
     plt.pause(0.001)  # pause a bit so that plots are updated
     # if is_ipython:
     #     display.clear_output(wait=True)
@@ -157,9 +157,14 @@ def optimize_model():
     optimizer.step()
     return loss.item()
 
-def process_state(state, world_models=False, eval=False):
-    visual = torch.FloatTensor(state).reshape(size, size, 3) / 255.0
+def process_state(state, t, world_models=False, eval=False):
+    visual = torch.FloatTensor(state).reshape(size, size, 3) / 255.0 * 0.0
+    # visual = visual.clone()
+
     visual = visual.permute(2, 0, 1)
+    
+    
+    
     if world_models:
         encoded_visual = vae.encode(visual.reshape(1, 3, 64, 64).cuda())[0]
         # print(encoded_visual.shape)
@@ -179,7 +184,8 @@ def process_state(state, world_models=False, eval=False):
     else:
         state = visual.reshape(1, 3, 64, 64).to(device)
         action = select_action(state, eval).detach()
-
+    # state *= 0
+    # state += t
     return state, action
 
 def compare_models(model_1, model_2):
@@ -220,12 +226,13 @@ def main(episodes):
         # random action..?
         total_loss = 0
 
-        state, action = process_state(state_unprocessed, world_models=True)
+        state, action = process_state(state_unprocessed,0, world_models=True)
         for t in range(max_t):
             done, r, state_unprocessed = env.step(action)
 
+
             # Store previous state, then generate new state based.
-            next_state, next_action = process_state(state_unprocessed, world_models=True)
+            next_state, next_action = process_state(state_unprocessed,t+1, world_models=True)
 
             if done:
                 next_state = None
@@ -280,7 +287,7 @@ def main(episodes):
                     target_net.load_state_dict(policy_net.state_dict())
                     print('Target net and policy net are unequal AFTER UPDATE:', compare_models(target_net, policy_net))
                     print('-----------------')
-                    torch.save(policy_net.state_dict(), './DQN_VAE_0.pt')
+                    torch.save(policy_net.state_dict(), './DQN_VAE_0_10jan.pt')
 
             if done or (t == (max_t-1)):
                 # reset batch and env.
