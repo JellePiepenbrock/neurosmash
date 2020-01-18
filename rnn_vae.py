@@ -102,6 +102,9 @@ def reduce_logsumexp(x, pi, dim=None):
 def detach(states):
     return [state.detach() for state in states]
 
+
+# Mixed Density RNN following https://github.com/sksq96/pytorch-mdn
+# Added action inputs  etc
 class MDNRNN(nn.Module):
     def __init__(self, z_size, n_hidden=256, n_gaussians=5, n_layers=1):
         super(MDNRNN, self).__init__()
@@ -164,8 +167,6 @@ if __name__ == "main":
 
     optimizer = torch.optim.Adam(model.parameters())
 
-
-
     best_loss = np.inf
     early_stopping = 0
     for epoch in range(epochs):
@@ -178,29 +179,21 @@ if __name__ == "main":
         b = 0
         batch = z[b:b + bsz, :, :]
         while b < 2000:
-        # Set initial hidden and cell states
-            hidden = model.init_hidden(bsz)
-        # print(hidden.shape)
 
-        # batch = z
+            hidden = model.init_hidden(bsz)
 
             for i in range(0, batch.size(1) - seqlen, seqlen):
-                # Get mini-batch inputs and targets
+
                 inputs = batch[:, i:i + seqlen, :]
 
                 targets = batch[:, (i + 1):(i + 1) + seqlen, :-1]
-                # print(targets.shape)
-                # Forward pass
                 hidden = detach(hidden)
-                # print(inputs.shape)
                 (pi, mu, sigma), hidden = model(inputs, hidden)
-                # print(targets)
                 loss = criterion(targets, pi, mu, sigma)
 
-                # Backward and optimize
+
                 model.zero_grad()
                 loss.backward(retain_graph=True)
-                # clip_grad_norm_(model.parameters(), 0.5)
                 optimizer.step()
                 epochloss += loss.item()
 
