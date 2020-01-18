@@ -39,7 +39,7 @@ class DQN_VAE(nn.Module):
     def __init__(self, h, w, outputs):
         super(DQN_VAE, self).__init__()
         self.predictor = nn.Sequential(
-            nn.Linear((32+3*256), 256),
+            nn.Linear(32, 256),
             nn.ReLU(),
             nn.Linear(256, outputs)
         )

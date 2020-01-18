@@ -89,7 +89,7 @@ def plot_durations(wins_prob_list):
     plt.figure(2)
     plt.clf()
     episode_wins = torch.tensor(wins_prob_list, dtype=torch.float)
-    torch.save(episode_wins, "episode_wins.data")
+    torch.save(episode_wins, "episode_wins_16jan_baseline.data")
     plt.title('Training...')
     plt.xlabel('Episode')
     plt.ylabel('Avg win probability')
@@ -100,7 +100,7 @@ def plot_durations(wins_prob_list):
         means = torch.cat((torch.zeros(99), means))
         plt.plot(means.numpy())
     plt.ylim(0, 1)
-    plt.savefig('./vanilla_DQN_VAE_15_01_2019.png')
+    plt.savefig('./vanilla_DQN_VAE_16_01_2019_baseline.png')
     plt.pause(0.001)  # pause a bit so that plots are updated
     # if is_ipython:
     #     display.clear_output(wait=True)
@@ -159,7 +159,7 @@ def optimize_model():
     return loss.item()
 
 def process_state(state, t, world_models=False, eval=False):
-    visual = torch.FloatTensor(state).reshape(size, size, 3) / 255.0
+    visual = torch.FloatTensor(state).reshape(size, size, 3) / 255.0 * 0.0
     # visual = visual.clone()
 
     visual = visual.permute(2, 0, 1)
@@ -171,16 +171,17 @@ def process_state(state, t, world_models=False, eval=False):
         # print(encoded_visual.shape)
         # 3 actions
         futures = []
-        for i in range(3):
-            action = torch.Tensor([i]).cuda()
-            hidden = rnn.init_hidden(1)
-            z = torch.cat([encoded_visual.reshape(1, 1, 32), action.reshape(1, 1, 1)], dim=2)
-            # print(z.shape)
-            (pi, mu, sigma), (hidden_future, _) = rnn(z, hidden)
-            futures.append(hidden_future)
+        # for i in range(3):
+        #     action = torch.Tensor([i]).cuda()
+        #     hidden = rnn.init_hidden(1)
+        #     z = torch.cat([encoded_visual.reshape(1, 1, 32), action.reshape(1, 1, 1)], dim=2)
+        #     # print(z.shape)
+        #     (pi, mu, sigma), (hidden_future, _) = rnn(z, hidden)
+        #     futures.append(hidden_future)
 
-        futures = torch.cat(futures).reshape(3 * 256)
-        state = torch.cat([encoded_visual.reshape(32), futures]).reshape(1, (32 + 3 * 256)).detach()
+        # futures = torch.zeros(3*256).cuda()
+        # state = torch.cat([encoded_visual.reshape(32), futures]).reshape(1, (32 + 3 * 256)).detach()
+        state = encoded_visual.reshape(1, 32).detach()
         action = select_action(state, eval).detach()
     else:
         state = visual.reshape(1, 3, 64, 64).to(device)
@@ -288,7 +289,7 @@ def main(episodes):
                     target_net.load_state_dict(policy_net.state_dict())
                     print('Target net and policy net are unequal AFTER UPDATE:', compare_models(target_net, policy_net))
                     print('-----------------')
-                    torch.save(policy_net.state_dict(), './DQN_VAE_0_15jan.pt')
+                    torch.save(policy_net.state_dict(), './DQN_VAE_0_16jan_baseline.pt')
 
             if done or (t == (max_t-1)):
                 # reset batch and env.
@@ -326,4 +327,4 @@ def main(episodes):
     # plt.show()
 
 
-main(20)
+main(2000)
