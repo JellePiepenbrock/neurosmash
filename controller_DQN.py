@@ -36,10 +36,10 @@ class ReplayMemory(object):
         return len(self.memory)
 
 class DQN_VAE(nn.Module):
-    def __init__(self, h, w, outputs):
+    def __init__(self, h, w, outputs, input_params):
         super(DQN_VAE, self).__init__()
         self.predictor = nn.Sequential(
-            nn.Linear(32, 256),
+            nn.Linear(input_params, 256),
             nn.ReLU(),
             nn.Linear(256, outputs)
         )

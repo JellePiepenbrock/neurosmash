@@ -12,6 +12,15 @@ import torch.nn.functional as F
 
 torch.manual_seed(42)
 
+'''
+Code based on https://pytorch.org/tutorials/intermediate/reinforcement_q_learning.html
+credits for providing example VAE model go to respective author.
+'''
+
+USE_WM = True
+USE_RNN = True
+ZERO_INPUT = False
+
 BATCH_SIZE = 64
 GAMMA = 0.99
 EPS_START = 0.9
@@ -39,23 +48,23 @@ vae = VAE(device, image_channels=3).to(device)
 vae.load_state_dict(torch.load("./data_folder_vae/vae_v3_weighted_loss_{}.torch".format(weighted_loss)))
 vae.eval()
 
-'''
-70% avg is with
-gamma = 0.99
-eps_end = 0.01
-lr = 1e-2
-rmsprop
-
-'''
-
 # Load RNN weights
 rnn = MDNRNN(32, 256, 5, 1).to(device)
-rnn.load_state_dict(torch.load("./rnn_29dec_{}.torch".format(weighted_loss)))
+rnn.load_state_dict(torch.load("./weights/rnn_29dec_{}.torch".format(weighted_loss)))
 rnn.eval()
 
-# Load controller
-policy_net = DQN_VAE(64, 64, 3).to(device)
-target_net = DQN_VAE(64, 64, 3).to(device)
+# Load controller, if vanilla DQN, replace DQN_VAE with DQN2
+
+if USE_WM:
+    if USE_RNN:
+        input_params = n_actions*256 + 32
+    else:
+        input_params = 32
+    policy_net = DQN_VAE(64, 64, 3, input_params).to(device)
+    target_net = DQN_VAE(64, 64, 3, input_params).to(device)
+else:
+    policy_net = DQN2(64, 64, 3).to(device)
+    target_net = DQN2(64, 64, 3).to(device)
 target_net.load_state_dict(policy_net.state_dict())
 target_net.eval()
 
@@ -64,19 +73,13 @@ memory = ReplayMemory(10000)
 
 steps_done = 0
 
-# is_ipython = 'inline' in matplotlib.get_backend()
-# if is_ipython:
-#     from IPython import display
-
-# plt.ion()
-
-def select_action(state, eval=False):
+def select_action(state):
     global steps_done
     sample = random.random()
     eps_threshold = EPS_END + (EPS_START - EPS_END) * \
         math.exp(-1. * steps_done / EPS_DECAY)
     steps_done += 1
-    if (sample > eps_threshold) or eval:
+    if (sample > eps_threshold):
         with torch.no_grad():
             # t.max(1) will return largest column value of each row.
             # second column on max result is index of where max element was
@@ -89,7 +92,7 @@ def plot_durations(wins_prob_list):
     plt.figure(2)
     plt.clf()
     episode_wins = torch.tensor(wins_prob_list, dtype=torch.float)
-    torch.save(episode_wins, "episode_wins_16jan_baseline.data")
+    torch.save(episode_wins, "DQN_vanilla.data")
     plt.title('Training...')
     plt.xlabel('Episode')
     plt.ylabel('Avg win probability')
@@ -100,15 +103,13 @@ def plot_durations(wins_prob_list):
         means = torch.cat((torch.zeros(99), means))
         plt.plot(means.numpy())
     plt.ylim(0, 1)
-    plt.savefig('./vanilla_DQN_VAE_16_01_2019_baseline.png')
+    plt.savefig('./DQN_vanilla.png')
     plt.pause(0.001)  # pause a bit so that plots are updated
-    # if is_ipython:
-    #     display.clear_output(wait=True)
-    #     display.display(plt.gcf())
-
-# ------------------
 
 def optimize_model():
+    '''
+    Optimizes model by sampling from replay buffer.
+    '''
     if len(memory) < BATCH_SIZE:
         return 0
     transitions = memory.sample(BATCH_SIZE)
@@ -158,49 +159,40 @@ def optimize_model():
     optimizer.step()
     return loss.item()
 
-def process_state(state, t, world_models=False, eval=False):
-    visual = torch.FloatTensor(state).reshape(size, size, 3) / 255.0 * 0.0
-    # visual = visual.clone()
-
+def process_state(state, t, world_models=False, use_rnn=True, zero_input=False):
+    '''
+    Processes state
+    1. If world_models, thenstate is encoded by the VAE and
+    a future state is predicted by the RNN. 
+    2. If use_rnn, future predictions are made by RNN.
+    3. IF zero_input, visual is multiplied by zero.
+    '''
+    visual = torch.FloatTensor(state).reshape(size, size, 3) / 255.0 * (0.0 if zero_input else 1.0)
     visual = visual.permute(2, 0, 1)
-    
-    
     
     if world_models:
         encoded_visual = vae.encode(visual.reshape(1, 3, 64, 64).cuda())[0]
-        # print(encoded_visual.shape)
-        # 3 actions
-        futures = []
-        # for i in range(3):
-        #     action = torch.Tensor([i]).cuda()
-        #     hidden = rnn.init_hidden(1)
-        #     z = torch.cat([encoded_visual.reshape(1, 1, 32), action.reshape(1, 1, 1)], dim=2)
-        #     # print(z.shape)
-        #     (pi, mu, sigma), (hidden_future, _) = rnn(z, hidden)
-        #     futures.append(hidden_future)
 
-        # futures = torch.zeros(3*256).cuda()
-        # state = torch.cat([encoded_visual.reshape(32), futures]).reshape(1, (32 + 3 * 256)).detach()
-        state = encoded_visual.reshape(1, 32).detach()
-        action = select_action(state, eval).detach()
+        # 3 actions
+        if use_rnn:
+            futures = []
+            for i in range(3):
+                action = torch.Tensor([i]).cuda()
+                hidden = rnn.init_hidden(1)
+                z = torch.cat([encoded_visual.reshape(1, 1, 32), action.reshape(1, 1, 1)], dim=2)
+                # print(z.shape)
+                (pi, mu, sigma), (hidden_future, _) = rnn(z, hidden)
+                futures.append(hidden_future)
+
+            futures = torch.zeros(3*256).cuda()
+            state = torch.cat([encoded_visual.reshape(32), futures]).reshape(1, (32 + 3 * 256)).detach()
+        else:
+            state = encoded_visual.reshape(1, 32).detach()
+        action = select_action(state).detach()
     else:
         state = visual.reshape(1, 3, 64, 64).to(device)
-        action = select_action(state, eval).detach()
-    # state *= 0
-    # state += t
+        action = select_action(state).detach()
     return state, action
-
-def compare_models(model_1, model_2):
-    models_differ = 0
-    for key_item_1, key_item_2 in zip(model_1.state_dict().items(), model_2.state_dict().items()):
-        if torch.equal(key_item_1[1], key_item_2[1]):
-            pass
-        else:
-            models_differ += 1
-    if models_differ == 0:
-        return False
-    else:
-        return True
 
 def adjust_learning_rate():
     global optimizer
@@ -211,7 +203,6 @@ def adjust_learning_rate():
     print('------------------------')
 
 def main(episodes):
-    # based on: https://pytorch.org/tutorials/intermediate/reinforcement_q_learning.html
     # Episode lasts until end == 1
     wins_prob_list = []
     total_wins = 0
@@ -228,13 +219,13 @@ def main(episodes):
         # random action..?
         total_loss = 0
 
-        state, action = process_state(state_unprocessed, 0, world_models=True)
+        state, action = process_state(state_unprocessed, 0, world_models=USE_WM, use_rnn=USE_RNN, zero_input=ZERO_INPUT)
         for t in range(max_t):
             done, r, state_unprocessed = env.step(action)
 
 
             # Store previous state, then generate new state based.
-            next_state, next_action = process_state(state_unprocessed,t+1, world_models=True)
+            next_state, next_action = process_state(state_unprocessed, t+1, world_models=USE_WM, use_rnn=USE_RNN, zero_input=ZERO_INPUT)
 
             if done:
                 next_state = None
@@ -273,13 +264,6 @@ def main(episodes):
                                                                               total_loss / t))
                 print('Size of batch', len(batch))
                 print('Number of memory slots filled: ', len(memory))
-
-                if compare_models(policy_net, prev_weights):
-                    cnt_updated = 0
-                else:
-                    cnt_updated += 1
-                print('Policy network not changed for {} episodes.'.format(cnt_updated))
-                print('Target net and policy net are unequal:', compare_models(target_net, policy_net))
                 print('-----------------')
 
                 if cnt_wins_losses == 500:
@@ -287,44 +271,11 @@ def main(episodes):
                     adjust_learning_rate()
                 if cnt_wins_losses % TARGET_UPDATE == 0:
                     target_net.load_state_dict(policy_net.state_dict())
-                    print('Target net and policy net are unequal AFTER UPDATE:', compare_models(target_net, policy_net))
-                    print('-----------------')
-                    torch.save(policy_net.state_dict(), './DQN_VAE_0_16jan_baseline.pt')
+                    torch.save(policy_net.state_dict(), './DQN_vanilla.pt')
 
             if done or (t == (max_t-1)):
                 # reset batch and env.
                 batch = []
                 break
-
-    # TODO Evaluate
-    #TODO: After 2k episodes; save model; play 10x100 episodes and average wins/losses.
-    # for i in range(10):
-    #     total_eps = 0
-    #     total_wins = 0
-    #     while total_eps < 100:
-    #         end, r, state_unprocessed = env.reset()  # Reset environment and record the starting state
-    #         # Init state seems to be zeroes in tutorial; but then given that state, the env will probably select a
-    #         # random action..?
-    #         total_loss = 0
-    #
-    #         state, action = process_state(state_unprocessed, world_models=False, eval=True)
-    #         for t in range(max_t):
-    #             done, r, state_unprocessed = env.step(action)
-    #
-    #             # Store previous state, then generate new state based.
-    #             next_state, action = process_state(state_unprocessed, world_models=False, eval=True)
-    #
-    #             if done:
-    #                 if r > 0:
-    #                     total_wins += 1
-    #             total_eps += 1
-    #
-    #             break
-    #
-    #
-    #     print('Average for simulation {} was {}'.format(i, total_wins / total_eps))
-    # plt.ioff()
-    # plt.show()
-
 
 main(2000)

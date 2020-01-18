@@ -21,35 +21,35 @@ class Agent:
         return 3 # random
 
 
-learning_rate = 0.01
-gamma = 0.99
+# learning_rate = 0.01
+# gamma = 0.99
 
-class Policy(nn.Module):
-    def __init__(self):
-        super(Policy, self).__init__()
+# class Policy(nn.Module):
+#     def __init__(self):
+#         super(Policy, self).__init__()
 
-        self.policymodel = nn.Sequential(
-            nn.Conv2d(in_channels=3, out_channels=4, kernel_size=5,dilation=5),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=4),
-            nn.Conv2d(in_channels=4, out_channels=4, kernel_size=5, dilation=7),
-            nn.MaxPool2d(kernel_size=4),
-            nn.Conv2d(in_channels=4, out_channels=4, kernel_size=5, dilation=7),
-            nn.MaxPool2d(kernel_size=4),
-            nn.ReLU(),
-            Flatten(),
-            nn.Linear(16, 5),
-            nn.ReLU(),
-            nn.Linear(5, 3)
-        )
+#         self.policymodel = nn.Sequential(
+#             nn.Conv2d(in_channels=3, out_channels=4, kernel_size=5,dilation=5),
+#             nn.ReLU(),
+#             nn.MaxPool2d(kernel_size=4),
+#             nn.Conv2d(in_channels=4, out_channels=4, kernel_size=5, dilation=7),
+#             nn.MaxPool2d(kernel_size=4),
+#             nn.Conv2d(in_channels=4, out_channels=4, kernel_size=5, dilation=7),
+#             nn.MaxPool2d(kernel_size=4),
+#             nn.ReLU(),
+#             Flatten(),
+#             nn.Linear(16, 5),
+#             nn.ReLU(),
+#             nn.Linear(5, 3)
+#         )
 
-        self.gamma = gamma
+#         self.gamma = gamma
 
-        self.policy_history = Variable(torch.Tensor())
-        self.reward_episode = []
+#         self.policy_history = Variable(torch.Tensor())
+#         self.reward_episode = []
 
-        self.reward_history = []
-        self.loss_history = []
+#         self.reward_history = []
+#         self.loss_history = []
 
 
     def forward(self, x):
