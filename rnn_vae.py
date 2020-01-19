@@ -1,21 +1,11 @@
 import torch.nn as nn
 import torch
 import torch.nn.functional as F
-import Neurosmash
 import matplotlib
 from VAE import VAE
-from sklearn.preprocessing import scale
-from torch.nn.utils import clip_grad_norm_
-from torch.autograd import Variable
-# from torchsummary import summary
-
 import numpy as np
 import matplotlib.pyplot as plt
-# from vae import VAE
-from sklearn.decomposition import PCA
-from torchvision.utils import save_image
-# from IPython.core.display import Image, display
-import pickle
+
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 # device = 'cpu'
 ip         = "127.0.0.1" # Ip address that the TCP/IP interface listens to
@@ -43,45 +33,13 @@ n_hidden = 256
 n_gaussians = 5
 
 
-# z2 = torch.load('data_folder_vae/training_data_encoded_weighted_loss_{}.pt'.format(weighted_loss)).to(device)
-# aa = torch.load('data_folder_vae/training_actions.pt').to(device)
-# print(z2.shape)
-# print(torch.Tensor(aa))
-# print(aa.shape)
-# file = open('PCA_model.pkl','r')
-# pca = pickle.load(file)
-# for episode in z2:
-#     while len(episode) < 15:
-#         episode.append(torch.zeros(3, 64, 64))
-#
-#     while len(episode) > 15:
-# #         episode = episode[:15]
-#
-# print(z2[0].shape)
-# print(torch.tensor(z2[0]))
+z2 = torch.load('data_folder_vae/training_data_encoded_weighted_loss_{}.pt'.format(weighted_loss)).to(device)
+aa = torch.load('data_folder_vae/training_actions.pt').to(device)
 
-# pca = PCA(n_components=z_size)
-# pca = torch.load("pca.pt")
 
-# print(z2.shape)
-# print(pca)
-# z2_pca = z2.reshape(20*20, 3*64*64) / 1000
-# print(z2.shape)
-# z = torch.Tensor(pca.fit_transform(z2_pca).reshape(1000, 20, z_size)).cuda()
-# z = torch.Tensor(pca.transform(z2_pca).reshape(20, 20, z_size)).cuda()
-# # torch.save(pca, "pca.pt")
-# print(z.shape)
-# # THIS LINE DOES LIKE 12 THINGS
-#
-# z2 = z2.reshape(ds_size, 20, 32)
-# print(z2.shape, aa.shape)
-# z = torch.cat([z2[:, 1:, :], aa.reshape(ds_size, 20, 1)[:, :-1, :]], dim=2)
-# print(z)
-# print(z.shape)
-# print(pca.shape)
+z = torch.cat([z2[:, 1:, :], aa.reshape(ds_size, 20, 1)[:, :-1, :]], dim=2)
 
-# z = torch.randn(200, 150, 4).cuda()
-# z = z.to(device)
+z = z.to(device)
 
 def reduce_logsumexp(x, pi, dim=None):
 
@@ -163,7 +121,7 @@ def criterion(y, pi, mu, sigma):
     y = y.unsqueeze(2)
     return mdn_loss_fn(y, pi, mu, sigma)
 
-if __name__ == "main":
+if __name__ == "__main__":
 
     optimizer = torch.optim.Adam(model.parameters())
 
