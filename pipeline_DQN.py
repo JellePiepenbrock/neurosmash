@@ -172,18 +172,18 @@ def process_state(state, action, hidden, world_models=False, use_rnn=True, zero_
     
     if world_models:
         encoded_visual = vae.encode(visual.reshape(1, 3, 64, 64).cuda())[0]
-
+        z_real = torch.cat([encoded_visual.reshape(1, 1, 32), torch.tensor(action.reshape(1, 1, 1), dtype=torch.float).cuda()], dim=2)
         # 3 actions
         if use_rnn:
             futures = []
             for i in range(3):
-                action = torch.Tensor([i]).cuda()
+                hypo_action = torch.Tensor([i]).cuda()
 
-                z = torch.cat([encoded_visual.reshape(1, 1, 32), action.reshape(1, 1, 1)], dim=2)
-                (pi, mu, sigma), (hidden_future, _) = rnn(z, hidden)
+                hypo_z = torch.cat([encoded_visual.reshape(1, 1, 32), hypo_action.reshape(1, 1, 1)], dim=2)
+                (pi, mu, sigma), (hidden_future, _) = rnn(hypo_z, hidden)
                 futures.append(hidden_future)
 
-            (pi, mu, sigma), (hidden, cell) = rnn(z, hidden)
+            (pi, mu, sigma), (hidden, cell) = rnn(z_real, hidden)
             hidden = (hidden, cell)
 
             futures = torch.cat(futures).reshape(3 * 256)
