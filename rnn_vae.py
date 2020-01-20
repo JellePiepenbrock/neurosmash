@@ -193,7 +193,7 @@ if __name__ == "__main__":
     matplotlib.pyplot.imshow(np.transpose(np.array(original_x.detach().cpu().numpy(), "uint8"), (1, 2, 0)))
     plt.title("Original")
     plt.show()
-    # print(y_preds.shape)
+
 
     for i in range(5):
         y_preds = torch.normal(mu, sigma)[:, :, i, :]

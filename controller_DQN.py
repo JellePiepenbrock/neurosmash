@@ -1,12 +1,6 @@
 from collections import namedtuple
-from itertools import count
-import torch.nn.functional as F
-
 import torch.nn as nn
 import torch
-from torch.distributions import Categorical
-from torch.autograd import Variable
-import numpy as np
 import random
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
