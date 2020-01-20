@@ -20,13 +20,6 @@ class Agent:
         # return 2 # right
         return 3 # random
 
-
-# learning_rate = 0.01
-# gamma = 0.99
-
-
-
-
     def forward(self, x):
         x = torch.FloatTensor(x).reshape(1,64,64, 3)
         x = self.policymodel(x)  # Made the softmax temp lower
@@ -68,5 +61,3 @@ class Environment:
     def _send(self, action, command):
         self.client.send(bytes([action, command]))
 
-
-#data   = self.client.recv(1 + 1 + 768 * 768 * 3, socket.MSG_WAITALL)
