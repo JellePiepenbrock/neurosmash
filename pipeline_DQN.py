@@ -180,19 +180,14 @@ def process_state(state, action, hidden, world_models=False, use_rnn=True, zero_
                 action = torch.Tensor([i]).cuda()
 
                 z = torch.cat([encoded_visual.reshape(1, 1, 32), action.reshape(1, 1, 1)], dim=2)
-                # print(z.shape)
                 (pi, mu, sigma), (hidden_future, _) = rnn(z, hidden)
                 futures.append(hidden_future)
-            # action = torch.tensor(action, dtype=torch.float).cuda()
-            # z = torch.cat([encoded_visual.reshape(1, 1, 32), action.reshape(1, 1, 1)], dim=2)
-            (pi, mu, sigma), (hidden, cell) = rnn(z, hidden)
 
-            # futures = hidden.cuda().reshape(256)
+            (pi, mu, sigma), (hidden, cell) = rnn(z, hidden)
             hidden = (hidden, cell)
-            # print(futures.shape)
+
             futures = torch.cat(futures).reshape(3 * 256)
             futures = futures.cuda().reshape(3*256)
-            # state = torch.cat([encoded_visual.reshape(32), futures]).reshape(1, (32 + 256)).detach()
             state = torch.cat([encoded_visual.reshape(32), futures]).reshape(1, (32 + 3*256)).detach()
         else:
             state = encoded_visual.reshape(1, 32).detach()
