@@ -57,7 +57,7 @@ rnn.eval()
 
 if USE_WM:
     if USE_RNN:
-        input_params = n_actions*256 + 32
+        input_params = 3*256 + 32
     else:
         input_params = 32
     policy_net = DQN_VAE(64, 64, 3, input_params).to(device)
@@ -92,7 +92,7 @@ def plot_durations(wins_prob_list):
     plt.figure(2)
     plt.clf()
     episode_wins = torch.tensor(wins_prob_list, dtype=torch.float)
-    torch.save(episode_wins, "DQN_vanilla.data")
+    torch.save(episode_wins, "DQN_wm2data")
     plt.title('Training...')
     plt.xlabel('Episode')
     plt.ylabel('Avg win probability')
@@ -103,7 +103,7 @@ def plot_durations(wins_prob_list):
         means = torch.cat((torch.zeros(99), means))
         plt.plot(means.numpy())
     plt.ylim(0, 1)
-    plt.savefig('./DQN_vanilla.png')
+    plt.savefig('./DQN_wm2.png')
     plt.pause(0.001)  # pause a bit so that plots are updated
 
 def optimize_model():
@@ -159,7 +159,7 @@ def optimize_model():
     optimizer.step()
     return loss.item()
 
-def process_state(state, t, world_models=False, use_rnn=True, zero_input=False):
+def process_state(state, action, hidden, world_models=False, use_rnn=True, zero_input=False):
     '''
     Processes state
     1. If world_models, thenstate is encoded by the VAE and
@@ -178,21 +178,29 @@ def process_state(state, t, world_models=False, use_rnn=True, zero_input=False):
             futures = []
             for i in range(3):
                 action = torch.Tensor([i]).cuda()
-                hidden = rnn.init_hidden(1)
+
                 z = torch.cat([encoded_visual.reshape(1, 1, 32), action.reshape(1, 1, 1)], dim=2)
                 # print(z.shape)
                 (pi, mu, sigma), (hidden_future, _) = rnn(z, hidden)
                 futures.append(hidden_future)
+            # action = torch.tensor(action, dtype=torch.float).cuda()
+            # z = torch.cat([encoded_visual.reshape(1, 1, 32), action.reshape(1, 1, 1)], dim=2)
+            (pi, mu, sigma), (hidden, cell) = rnn(z, hidden)
 
-            futures = torch.zeros(3*256).cuda()
-            state = torch.cat([encoded_visual.reshape(32), futures]).reshape(1, (32 + 3 * 256)).detach()
+            # futures = hidden.cuda().reshape(256)
+            hidden = (hidden, cell)
+            # print(futures.shape)
+            futures = torch.cat(futures).reshape(3 * 256)
+            futures = futures.cuda().reshape(3*256)
+            # state = torch.cat([encoded_visual.reshape(32), futures]).reshape(1, (32 + 256)).detach()
+            state = torch.cat([encoded_visual.reshape(32), futures]).reshape(1, (32 + 3*256)).detach()
         else:
             state = encoded_visual.reshape(1, 32).detach()
         action = select_action(state).detach()
     else:
         state = visual.reshape(1, 3, 64, 64).to(device)
         action = select_action(state).detach()
-    return state, action
+    return state, action, hidden
 
 def adjust_learning_rate():
     global optimizer
@@ -213,19 +221,20 @@ def main(episodes):
     batch = []
     while cnt_wins_losses < episodes:
         print('Starting episode {}'.format(cnt_wins_losses))
+        hidden = rnn.init_hidden(1)
         prev_weights = copy.deepcopy(policy_net)
         end, r, state_unprocessed = env.reset()  # Reset environment and record the starting state
         # Init state seems to be zeroes in tutorial; but then given that state, the env will probably select a
         # random action..?
         total_loss = 0
 
-        state, action = process_state(state_unprocessed, 0, world_models=USE_WM, use_rnn=USE_RNN, zero_input=ZERO_INPUT)
+        state, action, hidden = process_state(state_unprocessed, torch.tensor(0.0).reshape(1,1).cuda(), hidden, world_models=USE_WM, use_rnn=USE_RNN, zero_input=ZERO_INPUT)
         for t in range(max_t):
             done, r, state_unprocessed = env.step(action)
 
 
             # Store previous state, then generate new state based.
-            next_state, next_action = process_state(state_unprocessed, t+1, world_models=USE_WM, use_rnn=USE_RNN, zero_input=ZERO_INPUT)
+            next_state, next_action, hidden = process_state(state_unprocessed, action, hidden, world_models=USE_WM, use_rnn=USE_RNN, zero_input=ZERO_INPUT)
 
             if done:
                 next_state = None
@@ -271,7 +280,7 @@ def main(episodes):
                     adjust_learning_rate()
                 if cnt_wins_losses % TARGET_UPDATE == 0:
                     target_net.load_state_dict(policy_net.state_dict())
-                    torch.save(policy_net.state_dict(), './DQN_vanilla.pt')
+                    torch.save(policy_net.state_dict(), './DQN_wm2.pt')
 
             if done or (t == (max_t-1)):
                 # reset batch and env.
