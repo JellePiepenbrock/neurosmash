@@ -3,7 +3,7 @@
 Project for course "Neural Information Processing Systems" 2019. 
 
 
-## Reproducability
+## Reproducibility
 To reproduce our experiments, various steps have to be taken. Please take into account that for steps 1 and 4, an active environment is required and the settings (such as the port number) should be equal to those
 in the code.
 
