@@ -2,7 +2,7 @@
 In this work, we implemented World Models in order to train reinforcement learning agents in the simulated Neurosmash environment. We used background subtraction to enhance the performance of the variational autoencoder component, which allowed the recurrent world model to learn to predict plausible future states. We used a Deep Q Network as the controller component of the World Model setup. We found that both the standard DQN and the DQN with access to the World Model achieved average win rates of over 70\%. However, we constructed several baselines, that had no access to any game-state information, and these performed similarly. These findings serve as an indication that the environment is not complex in its current form.
 
 This is the repository for the final project of the (2019) "Neural Information Processing Systems" course at the Radboud University. Please find the remainder of our
-paper [here](https://github.com/mickvanhulst/neurosmash/tree/master/legacy/paper.pdf) 
+paper [here](https://github.com/mickvanhulst/neurosmash/blob/master/paper.pdf).
 
 
 ## Reproducability
