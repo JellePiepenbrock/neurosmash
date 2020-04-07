@@ -1,6 +1,8 @@
 # Neurosmash
+In this work, we implemented World Models in order to train reinforcement learning agents in the simulated Neurosmash environment. We used background subtraction to enhance the performance of the variational autoencoder component, which allowed the recurrent world model to learn to predict plausible future states. We used a Deep Q Network as the controller component of the World Model setup. We found that both the standard DQN and the DQN with access to the World Model achieved average win rates of over 70\%. However, we constructed several baselines, that had no access to any game-state information, and these performed similarly. These findings serve as an indication that the environment is not complex in its current form.
 
-Project for course "Neural Information Processing Systems" 2019. 
+This is the repository for the final project of the (2019) "Neural Information Processing Systems" course at the Radboud University. Please find the remainder of our
+paper [here](https://github.com/mickvanhulst/neurosmash/blob/master/paper.pdf).
 
 
 ## Reproducibility
@@ -15,24 +17,3 @@ in the code.
     2. World Models can be trained by changing the hyperparameters: USE_WM=True, USE_RNN=True, ZERO_INPUT=False
     3. Zero input model without RNN can be trained by changing the hyperparameters: USE_WM=True, USE_RNN=False, ZERO_INPUT=True
     4. Zero input model with RNN can be trained by changing the hyperparameters: USE_WM=True, USE_RNN=True, ZERO_INPUT=True
-
-<!-- 
-## Environment
-
-
-## Methods
-
-### World Models
-
-#### VAE
-
-We're using a VAE to encode the inputs into a lower dimensional space
-
-#### Mixture Density RNN
-
-The MD RNN will capture the dynamics of the environment.
-
-### RL Optimization
-
-
-## Further Reading -->
